@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "171682607620",
+    "project_id": "phone-authenticate-c645d",
+    "storage_bucket": "phone-authenticate-c645d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:171682607620:android:aa001ab4db26755d62bb51",
+        "android_client_info": {
+          "package_name": "com.example.medication_reminder_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFMw5S7GZOMo8Jsne3Jz9HecDcCME3pSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:171682607620:android:fe01a06b8cd8c96762bb51",
+        "android_client_info": {
+          "package_name": "com.example.phone_authentication"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFMw5S7GZOMo8Jsne3Jz9HecDcCME3pSw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
