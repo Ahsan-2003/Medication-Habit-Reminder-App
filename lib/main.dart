@@ -10,7 +10,7 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  await NotificationService.init();
+  await NotificationService().init;
   runApp(MyApp());
 }
 
