@@ -1,45 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'providers/auth_provider.dart';
-import 'providers/reminder_provider.dart';
-import 'services/notification_service.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'services/auth_service.dart';
+import 'screens/auth_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  await NotificationService().init;
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: const Key('my_app'));
+
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ReminderProvider()),
-      ],
-      child: MaterialApp(
-        title: 'MediHab',
-        theme: ThemeData(primarySwatch: Colors.blue),
-        home: Consumer<AuthProvider>(
-          builder: (ctx, auth, _) {
-            if (auth.isAuthenticated) {
-              // Initialize reminder provider with userId
-              final reminderProv = ctx.read<ReminderProvider>();
-              if (reminderProv.userId == null) {
-                reminderProv.init(auth.firebaseUser!.uid);
-              }
-              return HomeScreen();
-            } else {
-              return LoginScreen();
-            }
-          },
-        ),
-      ),
+    return MaterialApp(
+      title: 'Med & Habit Reminder',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({Key? key}) : super(key: const Key('auth_wrapper'));
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = AuthService();
+    return StreamBuilder<User?>(
+      stream: authService.authStateChanges,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasData) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Dashboard'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: () => authService.signOut(),
+                ),
+              ],
+            ),
+            body: Center(child: Text('Logged in as: ${snapshot.data!.email}')),
+          );
+        }
+        return const AuthScreen();
+      },
     );
   }
 }
