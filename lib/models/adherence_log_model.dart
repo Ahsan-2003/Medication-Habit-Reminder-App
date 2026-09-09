@@ -1,6 +1,51 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
 enum AdherenceStatus { taken, skipped, snoozed, pending }
+
+extension AdherenceStatusX on AdherenceStatus {
+  // Status icon
+  String get statusIcon {
+    switch (this) {
+      case AdherenceStatus.taken:
+        return '✅';
+      case AdherenceStatus.skipped:
+        return '❌';
+      case AdherenceStatus.snoozed:
+        return '⏰';
+      case AdherenceStatus.pending:
+        return '⏳';
+    }
+  }
+
+  // Status color
+  Color get statusColor {
+    switch (this) {
+      case AdherenceStatus.taken:
+        return Colors.green;
+      case AdherenceStatus.skipped:
+        return Colors.red;
+      case AdherenceStatus.snoozed:
+        return Colors.orange;
+      case AdherenceStatus.pending:
+        return Colors.grey;
+    }
+  }
+
+  // Status display name
+  String get statusDisplayName {
+    switch (this) {
+      case AdherenceStatus.taken:
+        return 'Taken';
+      case AdherenceStatus.skipped:
+        return 'Skipped';
+      case AdherenceStatus.snoozed:
+        return 'Snoozed';
+      case AdherenceStatus.pending:
+        return 'Pending';
+    }
+  }
+}
 
 class AdherenceLogModel {
   final String id;
@@ -73,31 +118,9 @@ class AdherenceLogModel {
         scheduledTime.day == now.day;
   }
 
-  // Helper to get status icon
-  String get statusIcon {
-    switch (status) {
-      case AdherenceStatus.taken:
-        return '✅';
-      case AdherenceStatus.skipped:
-        return '❌';
-      case AdherenceStatus.snoozed:
-        return '⏰';
-      case AdherenceStatus.pending:
-        return '⏳';
-    }
-  }
-
-  // Helper to get status color
-  int get statusColor {
-    switch (status) {
-      case AdherenceStatus.taken:
-        return 0xFF4CAF50; // Green
-      case AdherenceStatus.skipped:
-        return 0xFFF44336; // Red
-      case AdherenceStatus.snoozed:
-        return 0xFFFF9800; // Orange
-      case AdherenceStatus.pending:
-        return 0xFF9E9E9E; // Grey
-    }
-  }
+  // Convenience passthroughs to the AdherenceStatus extension,
+  // so existing code calling these directly on a log instance still works.
+  String get statusIcon => status.statusIcon;
+  Color get statusColor => status.statusColor;
+  String get statusDisplayName => status.statusDisplayName;
 }

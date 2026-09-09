@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import '../models/reminder_model.dart';
+import '../models/adherence_log_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/reminder_provider.dart';
+import '../providers/adherence_provider.dart';
+import '../widgets/reminder_action_dialog.dart';
 import 'add_reminder_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,20 +25,99 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initializeApp() async {
     final reminderProvider = context.read<ReminderProvider>();
+    final adherenceProvider = context.read<AdherenceProvider>();
+    final authProvider = context.read<AuthProvider>();
 
     // Initialize notifications
     await reminderProvider.initializeNotifications();
 
-    // Load reminders
-    _loadReminders();
-  }
-
-  void _loadReminders() {
-    final authProvider = context.read<AuthProvider>();
-    final reminderProvider = context.read<ReminderProvider>();
-
+    // Load reminders and logs
     if (authProvider.currentUser != null) {
       reminderProvider.loadReminders(authProvider.currentUser!.id);
+      adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+    }
+  }
+
+  Future<void> _handleReminderAction(
+    ReminderModel reminder,
+    String action,
+  ) async {
+    final authProvider = context.read<AuthProvider>();
+    final adherenceProvider = context.read<AdherenceProvider>();
+    final notificationService = NotificationService();
+
+    if (authProvider.currentUser == null) return;
+
+    final now = DateTime.now();
+    bool success = false;
+
+    switch (action) {
+      case 'taken':
+        success = await adherenceProvider.markAsTaken(
+          reminderId: reminder.id,
+          userId: authProvider.currentUser!.id,
+          scheduledTime: now,
+        );
+        if (success) {
+          // Cancel notification for this reminder
+          await notificationService.cancelReminderNotifications(reminder.id);
+          _showSnackBar('Marked as taken! 💊', Colors.green);
+        }
+        break;
+
+      case 'skipped':
+        success = await adherenceProvider.markAsSkipped(
+          reminderId: reminder.id,
+          userId: authProvider.currentUser!.id,
+          scheduledTime: now,
+        );
+        if (success) {
+          await notificationService.cancelReminderNotifications(reminder.id);
+          _showSnackBar('Marked as skipped', Colors.orange);
+        }
+        break;
+
+      case 'snoozed':
+        success = await adherenceProvider.markAsSnoozed(
+          reminderId: reminder.id,
+          userId: authProvider.currentUser!.id,
+          scheduledTime: now,
+        );
+        if (success) {
+          _showSnackBar('Snoozed for 10 minutes', Colors.blue);
+        }
+        break;
+    }
+
+    if (!success) {
+      _showSnackBar(
+        adherenceProvider.errorMessage ?? 'Failed to update status',
+        Colors.red,
+      );
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _showReminderActionDialog(ReminderModel reminder) async {
+    final now = DateTime.now();
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          ReminderActionDialog(reminder: reminder, scheduledTime: now),
+    );
+
+    if (action != null) {
+      await _handleReminderAction(reminder, action);
     }
   }
 
@@ -42,13 +125,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final reminderProvider = context.watch<ReminderProvider>();
+    final adherenceProvider = context.watch<AdherenceProvider>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('MediRemind'),
         backgroundColor: Colors.teal,
         actions: [
-          // Profile/Logout
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
@@ -67,10 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           children: [
-            // Streak Summary Card
-            _buildStreakSummary(context),
-
-            // Today's Schedule Header
+            _buildStreakSummary(context, adherenceProvider),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -87,14 +167,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-
-            // Reminder List
             Expanded(
               child: reminderProvider.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : reminderProvider.reminders.isEmpty
                   ? _buildEmptyState()
-                  : _buildReminderList(reminderProvider.reminders),
+                  : _buildReminderList(
+                      reminderProvider.reminders,
+                      adherenceProvider,
+                    ),
             ),
           ],
         ),
@@ -112,7 +193,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStreakSummary(BuildContext context) {
+  Widget _buildStreakSummary(
+    BuildContext context,
+    AdherenceProvider adherenceProvider,
+  ) {
+    final takenCount = adherenceProvider.todayLogs
+        .where((log) => log.status == AdherenceStatus.taken)
+        .length;
+    final totalCount = adherenceProvider.todayLogs.length;
+    final pendingCount = totalCount - takenCount;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(16),
@@ -140,18 +230,180 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildDivider(),
           _buildStatItem(
             icon: Icons.check_circle,
-            value: '0/0',
+            value: '$takenCount/$totalCount',
             label: 'Completed',
             color: Colors.green,
           ),
           _buildDivider(),
           _buildStatItem(
-            icon: Icons.notifications_active,
-            value: '0',
-            label: 'Upcoming',
+            icon: Icons.schedule,
+            value: '$pendingCount',
+            label: 'Pending',
             color: Colors.blue,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReminderList(
+    List<ReminderModel> reminders,
+    AdherenceProvider adherenceProvider,
+  ) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: reminders.length,
+      itemBuilder: (context, index) {
+        final reminder = reminders[index];
+        return _buildReminderCard(reminder, adherenceProvider);
+      },
+    );
+  }
+
+  Widget _buildReminderCard(
+    ReminderModel reminder,
+    AdherenceProvider adherenceProvider,
+  ) {
+    final now = DateTime.now();
+    final status = adherenceProvider.getStatusForReminder(reminder.id, now);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: reminder.type == ReminderType.medication
+                ? Colors.blue.withOpacity(0.1)
+                : Colors.green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              reminder.typeIcon,
+              style: const TextStyle(fontSize: 24),
+            ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                reminder.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            if (status != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: status.statusColor.withOpacity(
+                    0.1,
+                  ), // No Color() wrapper needed
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${status.statusIcon} ${status.statusDisplayName.toUpperCase()}', // Use statusDisplayName
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: status.statusColor, // No Color() wrapper needed
+                  ),
+                ),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              '🕐 ${reminder.timesDisplay}',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '📅 ${reminder.frequencyDisplay}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            if (reminder.dosage != null && reminder.dosage!.isNotEmpty)
+              Text(
+                '💊 ${reminder.dosage}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Quick action buttons
+            IconButton(
+              icon: const Icon(Icons.check_circle, color: Colors.green),
+              onPressed: status == null
+                  ? () => _handleReminderAction(reminder, 'taken')
+                  : null,
+              tooltip: 'Mark as taken',
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              onPressed: status == null
+                  ? () => _handleReminderAction(reminder, 'skipped')
+                  : null,
+              tooltip: 'Skip',
+            ),
+            PopupMenuButton(
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'action',
+                  child: Row(
+                    children: [
+                      Icon(Icons.more_horiz, size: 20),
+                      SizedBox(width: 8),
+                      Text('More Actions'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 20),
+                      SizedBox(width: 8),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 20, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == 'action') {
+                  _showReminderActionDialog(reminder);
+                } else if (value == 'edit') {
+                  // TODO: Navigate to edit screen
+                } else if (value == 'delete') {
+                  _showDeleteDialog(reminder);
+                }
+              },
+            ),
+          ],
+        ),
+        onTap: () => _showReminderActionDialog(reminder),
       ),
     );
   }
@@ -201,99 +453,6 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(color: Colors.grey),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildReminderList(List<ReminderModel> reminders) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: reminders.length,
-      itemBuilder: (context, index) {
-        final reminder = reminders[index];
-        return _buildReminderCard(reminder);
-      },
-    );
-  }
-
-  Widget _buildReminderCard(ReminderModel reminder) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: reminder.type == ReminderType.medication
-                ? Colors.blue.withOpacity(0.1)
-                : Colors.green.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              reminder.typeIcon,
-              style: const TextStyle(fontSize: 24),
-            ),
-          ),
-        ),
-        title: Text(
-          reminder.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              '🕐 ${reminder.timesDisplay}',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '📅 ${reminder.frequencyDisplay}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            if (reminder.dosage != null && reminder.dosage!.isNotEmpty)
-              Text(
-                '💊 ${reminder.dosage}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit, size: 20),
-                  SizedBox(width: 8),
-                  Text('Edit'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, size: 20, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Delete', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-          onSelected: (value) {
-            if (value == 'edit') {
-              // TODO: Navigate to edit screen
-            } else if (value == 'delete') {
-              _showDeleteDialog(reminder);
-            }
-          },
-        ),
       ),
     );
   }
