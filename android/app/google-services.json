@@ -1,0 +1,105 @@
+{
+  "project_info": {
+    "project_number": "813240814016",
+    "project_id": "madlab-11",
+    "storage_bucket": "madlab-11.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:813240814016:android:d08e109e0dfd0adb9aa025",
+        "android_client_info": {
+          "package_name": "com.example.crashlytics_analytics"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLmLCGXS_d3WR7Q79Bj1WcSd0-EsSLd6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:813240814016:android:ff2f45932029a34d9aa025",
+        "android_client_info": {
+          "package_name": "com.example.madlab_11"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLmLCGXS_d3WR7Q79Bj1WcSd0-EsSLd6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:813240814016:android:0910bd5131d10d7c9aa025",
+        "android_client_info": {
+          "package_name": "com.example.medication_reminder_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLmLCGXS_d3WR7Q79Bj1WcSd0-EsSLd6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:813240814016:android:fbf79244d1e712089aa025",
+        "android_client_info": {
+          "package_name": "com.example.notification_feature"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLmLCGXS_d3WR7Q79Bj1WcSd0-EsSLd6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:813240814016:android:68a7be9aaf4dd5a99aa025",
+        "android_client_info": {
+          "package_name": "push.notification_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLmLCGXS_d3WR7Q79Bj1WcSd0-EsSLd6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
