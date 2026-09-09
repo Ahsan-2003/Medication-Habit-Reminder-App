@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:medication_reminder_app/widgets/notification_permission_dialog.dart';
 import 'package:provider/provider.dart';
 import '../models/reminder_model.dart';
 import '../providers/auth_provider.dart';
@@ -65,6 +66,18 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         return;
       }
 
+      // Check if notifications are enabled
+      if (!reminderProvider.notificationsEnabled) {
+        final enableNotifications = await showDialog<bool>(
+          context: context,
+          builder: (context) => const NotificationPermissionDialog(),
+        );
+
+        if (enableNotifications == true) {
+          await reminderProvider.initializeNotifications();
+        }
+      }
+
       final reminder = ReminderModel(
         userId: authProvider.currentUser!.id,
         name: _nameController.text.trim(),
@@ -94,7 +107,9 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Reminder created successfully!'),
+              content: Text(
+                'Reminder created successfully! Notifications scheduled.',
+              ),
               backgroundColor: Colors.green,
             ),
           );
