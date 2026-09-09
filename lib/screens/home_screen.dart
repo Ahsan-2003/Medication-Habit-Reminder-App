@@ -16,6 +16,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeApp();
+  }
+
+  void _initializeApp() async {
+    final reminderProvider = context.read<ReminderProvider>();
+
+    // Initialize notifications
+    await reminderProvider.initializeNotifications();
+
+    // Load reminders
     _loadReminders();
   }
 
