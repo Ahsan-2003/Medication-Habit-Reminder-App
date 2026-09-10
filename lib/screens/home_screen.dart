@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
+import 'package:medication_reminder_app/screens/link_to_patient_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final reminderProvider = context.read<ReminderProvider>();
     final adherenceProvider = context.read<AdherenceProvider>();
     final streakProvider = context.read<StreakProvider>();
+    final caregiverProvider = context.read<CaregiverProvider>();
     final authProvider = context.read<AuthProvider>();
 
     await reminderProvider.initializeNotifications();
@@ -45,6 +48,185 @@ class _HomeScreenState extends State<HomeScreen> {
       adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
       streakProvider.loadStreak(authProvider.currentUser!.id);
       streakProvider.checkAndResetStreak(authProvider.currentUser!.id);
+
+      // Load caregiver link only for patients
+      if (authProvider.currentUser!.role == 'patient') {
+        caregiverProvider.loadPatientLink(authProvider.currentUser!.id);
+      }
+    }
+  }
+
+  // Run the 3 alarm tests
+  Future<void> _runAlarmTests(BuildContext context) async {
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    // Test 1: Exact alarm (15 seconds)
+    final exactTime = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(seconds: 15));
+    print('🧪 TEST 1: Exact alarm at $exactTime');
+
+    try {
+      await plugin.zonedSchedule(
+        id: 88881,
+        title: '🧪 TEST 1: Exact Alarm',
+        body: 'This is exactAllowWhileIdle',
+        scheduledDate: exactTime,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medication_reminders',
+            'Medication Reminders',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'test_exact',
+      );
+      print('✅ Exact scheduled');
+    } catch (e) {
+      print('❌ Exact failed: $e');
+    }
+
+    // Test 2: Inexact alarm (20 seconds)
+    final inexactTime = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(seconds: 20));
+    print('🧪 TEST 2: Inexact alarm at $inexactTime');
+
+    try {
+      await plugin.zonedSchedule(
+        id: 88882,
+        title: '🧪 TEST 2: Inexact Alarm',
+        body: 'This is inexactAllowWhileIdle',
+        scheduledDate: inexactTime,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medication_reminders',
+            'Medication Reminders',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: 'test_inexact',
+      );
+      print('✅ Inexact scheduled');
+    } catch (e) {
+      print('❌ Inexact failed: $e');
+    }
+
+    // Test 3: Short delay (5 seconds)
+    final immediateTime = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(seconds: 5));
+    print('🧪 TEST 3: Immediate alarm at $immediateTime');
+
+    try {
+      await plugin.zonedSchedule(
+        id: 88883,
+        title: '🧪 TEST 3: Short Delay',
+        body: 'This is 5 seconds away',
+        scheduledDate: immediateTime,
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medication_reminders',
+            'Medication Reminders',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        payload: 'test_short',
+      );
+      print('✅ Short scheduled');
+    } catch (e) {
+      print('❌ Short failed: $e');
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Scheduled 3 tests. Close app NOW!'),
+        duration: Duration(seconds: 5),
+      ),
+    );
+  }
+
+  // Show pending notifications dialog
+  Future<void> _showPendingNotifications(BuildContext context) async {
+    final plugin = FlutterLocalNotificationsPlugin();
+    final requests = await plugin.pendingNotificationRequests();
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Pending: ${requests.length}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: requests.isEmpty
+                ? [
+                    const Text(
+                      '❌ No pending notifications!\n\nThis means scheduling failed.',
+                    ),
+                  ]
+                : requests
+                      .map(
+                        (r) => Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              'ID: ${r.id}\n'
+                              'Title: ${r.title}\n'
+                              'Body: ${r.body}\n'
+                              'Payload: ${r.payload}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Confirm logout
+  Future<void> _confirmLogout(
+    BuildContext context,
+    AuthProvider authProvider,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout?'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await authProvider.signOut();
     }
   }
 
@@ -177,179 +359,38 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('MediRemind'),
         backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
-          // Add this test button
+          // Caregiver shortcut (most used)
           IconButton(
-            icon: const Icon(Icons.science),
-            onPressed: () async {
-              final plugin = FlutterLocalNotificationsPlugin();
-
-              // Test 1: Exact alarm (10 seconds)
-              final exactTime = tz.TZDateTime.now(
-                tz.local,
-              ).add(const Duration(seconds: 15));
-
-              print('🧪 TEST 1: Exact alarm at $exactTime');
-
-              try {
-                await plugin.zonedSchedule(
-                  id: 88881,
-                  title: '🧪 TEST 1: Exact Alarm',
-                  body: 'This is exactAllowWhileIdle',
-                  scheduledDate: exactTime,
-                  notificationDetails: const NotificationDetails(
-                    android: AndroidNotificationDetails(
-                      'medication_reminders',
-                      'Medication Reminders',
-                      importance: Importance.max,
-                      priority: Priority.high,
-                    ),
+            icon: const Icon(Icons.people_outline),
+            tooltip: authProvider.currentUser?.role == 'caregiver'
+                ? 'My Patients'
+                : 'Caregiver',
+            onPressed: () {
+              if (authProvider.currentUser?.role == 'caregiver') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LinkToPatientScreen(),
                   ),
-                  androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-                  payload: 'test_exact',
                 );
-                print('✅ Exact scheduled');
-              } catch (e) {
-                print('❌ Exact failed: $e');
-              }
-
-              // Test 2: Inexact alarm (20 seconds)
-              final inexactTime = tz.TZDateTime.now(
-                tz.local,
-              ).add(const Duration(seconds: 20));
-
-              print('🧪 TEST 2: Inexact alarm at $inexactTime');
-
-              try {
-                await plugin.zonedSchedule(
-                  id: 88882,
-                  title: '🧪 TEST 2: Inexact Alarm',
-                  body: 'This is inexactAllowWhileIdle',
-                  scheduledDate: inexactTime,
-                  notificationDetails: const NotificationDetails(
-                    android: AndroidNotificationDetails(
-                      'medication_reminders',
-                      'Medication Reminders',
-                      importance: Importance.max,
-                      priority: Priority.high,
-                    ),
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CaregiverInviteScreen(),
                   ),
-                  androidScheduleMode:
-                      AndroidScheduleMode.inexactAllowWhileIdle,
-                  payload: 'test_inexact',
                 );
-                print('✅ Inexact scheduled');
-              } catch (e) {
-                print('❌ Inexact failed: $e');
               }
-
-              // Test 3: immediate (5 seconds - just for baseline)
-              final immediateTime = tz.TZDateTime.now(
-                tz.local,
-              ).add(const Duration(seconds: 5));
-
-              print('🧪 TEST 3: Immediate alarm at $immediateTime');
-
-              try {
-                await plugin.zonedSchedule(
-                  id: 88883,
-                  title: '🧪 TEST 3: Short Delay',
-                  body: 'This is 5 seconds away',
-                  scheduledDate: immediateTime,
-                  notificationDetails: const NotificationDetails(
-                    android: AndroidNotificationDetails(
-                      'medication_reminders',
-                      'Medication Reminders',
-                      importance: Importance.max,
-                      priority: Priority.high,
-                    ),
-                  ),
-                  androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-                  payload: 'test_short',
-                );
-                print('✅ Short scheduled');
-              } catch (e) {
-                print('❌ Short failed: $e');
-              }
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Scheduled 3 tests. Close app NOW!'),
-                  duration: Duration(seconds: 5),
-                ),
-              );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_active),
-            onPressed: () async {
-              final notificationService = NotificationService();
-              await notificationService.showTestNotification();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Test notification sent!')),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () async {
-              final plugin = FlutterLocalNotificationsPlugin();
-              final requests = await plugin.pendingNotificationRequests();
 
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text('Pending: ${requests.length}'),
-                  content: SizedBox(
-                    width: double.maxFinite,
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: requests.isEmpty
-                          ? [
-                              const Text(
-                                '❌ No pending notifications!\n\nThis means scheduling failed.',
-                              ),
-                            ]
-                          : requests
-                                .map(
-                                  (r) => Card(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(
-                                        'ID: ${r.id}\n'
-                                        'Title: ${r.title}\n'
-                                        'Body: ${r.body}\n'
-                                        'Payload: ${r.payload}',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.clear_all),
-            onPressed: () async {
-              final plugin = FlutterLocalNotificationsPlugin();
-              await plugin.cancelAll();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All notifications cleared')),
-              );
-            },
-          ),
+          // Refresh shortcut
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
             onPressed: () {
               if (authProvider.currentUser != null) {
                 reminderProvider.loadReminders(authProvider.currentUser!.id);
@@ -358,16 +399,122 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.people),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CaregiverInviteScreen(),
-                ),
-              );
+
+          // Overflow menu (everything else)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'More options',
+            onSelected: (value) async {
+              switch (value) {
+                case 'profile':
+                  _showProfileDialog(context, authProvider);
+                  break;
+                case 'test_notification':
+                  final notificationService = NotificationService();
+                  await notificationService.showTestNotification();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Test notification sent!')),
+                    );
+                  }
+                  break;
+                case 'test_alarms':
+                  _runAlarmTests(context);
+                  break;
+                case 'view_pending':
+                  _showPendingNotifications(context);
+                  break;
+                case 'clear_notifications':
+                  final plugin = FlutterLocalNotificationsPlugin();
+                  await plugin.cancelAll();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All notifications cleared'),
+                      ),
+                    );
+                  }
+                  break;
+                case 'logout':
+                  _confirmLogout(context, authProvider);
+                  break;
+              }
             },
+            itemBuilder: (context) => [
+              // Profile
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20),
+                    SizedBox(width: 12),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+
+              const PopupMenuDivider(),
+
+              // Notification tests section
+              const PopupMenuItem(
+                value: 'test_notification',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_active,
+                      size: 20,
+                      color: Colors.blue,
+                    ),
+                    SizedBox(width: 12),
+                    Text('Test Notification'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'test_alarms',
+                child: Row(
+                  children: [
+                    Icon(Icons.science, size: 20, color: Colors.purple),
+                    SizedBox(width: 12),
+                    Text('Test Alarm Modes'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'view_pending',
+                child: Row(
+                  children: [
+                    Icon(Icons.bug_report, size: 20, color: Colors.orange),
+                    SizedBox(width: 12),
+                    Text('View Pending'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'clear_notifications',
+                child: Row(
+                  children: [
+                    Icon(Icons.clear_all, size: 20, color: Colors.grey),
+                    SizedBox(width: 12),
+                    Text('Clear All Notifications'),
+                  ],
+                ),
+              ),
+
+              const PopupMenuDivider(),
+
+              // Logout
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20, color: Colors.red),
+                    SizedBox(width: 12),
+                    Text('Logout', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
