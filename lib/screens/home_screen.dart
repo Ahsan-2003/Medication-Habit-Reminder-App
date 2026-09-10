@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder_model.dart';
 import '../models/adherence_log_model.dart';
 import '../providers/auth_provider.dart';
@@ -20,7 +23,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeApp();
+    // Delay initialization to ensure context is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeApp();
+    });
   }
 
   void _initializeApp() async {
@@ -33,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Load reminders and logs
     if (authProvider.currentUser != null) {
+      print('👤 Loading data for user: ${authProvider.currentUser!.id}');
       reminderProvider.loadReminders(authProvider.currentUser!.id);
       adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
     }
@@ -59,9 +66,10 @@ class _HomeScreenState extends State<HomeScreen> {
           scheduledTime: now,
         );
         if (success) {
-          // Cancel notification for this reminder
           await notificationService.cancelReminderNotifications(reminder.id);
           _showSnackBar('Marked as taken! 💊', Colors.green);
+          // Reload today's logs to update counts
+          adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
         }
         break;
 
@@ -74,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (success) {
           await notificationService.cancelReminderNotifications(reminder.id);
           _showSnackBar('Marked as skipped', Colors.orange);
+          adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
         }
         break;
 
@@ -85,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         if (success) {
           _showSnackBar('Snoozed for 10 minutes', Colors.blue);
+          adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
         }
         break;
     }
@@ -98,13 +108,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: color,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _showReminderActionDialog(ReminderModel reminder) async {
@@ -116,8 +128,31 @@ class _HomeScreenState extends State<HomeScreen> {
           ReminderActionDialog(reminder: reminder, scheduledTime: now),
     );
 
-    if (action != null) {
+    if (action != null && mounted) {
       await _handleReminderAction(reminder, action);
+    }
+  }
+
+  Future<void> _navigateToEditScreen(ReminderModel reminder) async {
+    print('✏️ Navigating to edit screen for: ${reminder.name}');
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditReminderScreen(reminder: reminder),
+      ),
+    );
+
+    // Reload data when returning from edit screen
+    if (result == true && mounted) {
+      final authProvider = context.read<AuthProvider>();
+      final reminderProvider = context.read<ReminderProvider>();
+      final adherenceProvider = context.read<AdherenceProvider>();
+
+      if (authProvider.currentUser != null) {
+        reminderProvider.loadReminders(authProvider.currentUser!.id);
+        adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+      }
     }
   }
 
@@ -127,11 +162,194 @@ class _HomeScreenState extends State<HomeScreen> {
     final reminderProvider = context.watch<ReminderProvider>();
     final adherenceProvider = context.watch<AdherenceProvider>();
 
+    print('🔄 Building HomeScreen');
+    print('📋 Reminders: ${reminderProvider.reminders.length}');
+    print('📊 Today Logs: ${adherenceProvider.todayLogs.length}');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('MediRemind'),
         backgroundColor: Colors.teal,
         actions: [
+          // Add this test button
+          IconButton(
+            icon: const Icon(Icons.science),
+            onPressed: () async {
+              final plugin = FlutterLocalNotificationsPlugin();
+
+              // Test 1: Exact alarm (10 seconds)
+              final exactTime = tz.TZDateTime.now(
+                tz.local,
+              ).add(const Duration(seconds: 15));
+
+              print('🧪 TEST 1: Exact alarm at $exactTime');
+
+              try {
+                await plugin.zonedSchedule(
+                  id: 88881,
+                  title: '🧪 TEST 1: Exact Alarm',
+                  body: 'This is exactAllowWhileIdle',
+                  scheduledDate: exactTime,
+                  notificationDetails: const NotificationDetails(
+                    android: AndroidNotificationDetails(
+                      'medication_reminders',
+                      'Medication Reminders',
+                      importance: Importance.max,
+                      priority: Priority.high,
+                    ),
+                  ),
+                  androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+                  payload: 'test_exact',
+                );
+                print('✅ Exact scheduled');
+              } catch (e) {
+                print('❌ Exact failed: $e');
+              }
+
+              // Test 2: Inexact alarm (20 seconds)
+              final inexactTime = tz.TZDateTime.now(
+                tz.local,
+              ).add(const Duration(seconds: 20));
+
+              print('🧪 TEST 2: Inexact alarm at $inexactTime');
+
+              try {
+                await plugin.zonedSchedule(
+                  id: 88882,
+                  title: '🧪 TEST 2: Inexact Alarm',
+                  body: 'This is inexactAllowWhileIdle',
+                  scheduledDate: inexactTime,
+                  notificationDetails: const NotificationDetails(
+                    android: AndroidNotificationDetails(
+                      'medication_reminders',
+                      'Medication Reminders',
+                      importance: Importance.max,
+                      priority: Priority.high,
+                    ),
+                  ),
+                  androidScheduleMode:
+                      AndroidScheduleMode.inexactAllowWhileIdle,
+                  payload: 'test_inexact',
+                );
+                print('✅ Inexact scheduled');
+              } catch (e) {
+                print('❌ Inexact failed: $e');
+              }
+
+              // Test 3: immediate (5 seconds - just for baseline)
+              final immediateTime = tz.TZDateTime.now(
+                tz.local,
+              ).add(const Duration(seconds: 5));
+
+              print('🧪 TEST 3: Immediate alarm at $immediateTime');
+
+              try {
+                await plugin.zonedSchedule(
+                  id: 88883,
+                  title: '🧪 TEST 3: Short Delay',
+                  body: 'This is 5 seconds away',
+                  scheduledDate: immediateTime,
+                  notificationDetails: const NotificationDetails(
+                    android: AndroidNotificationDetails(
+                      'medication_reminders',
+                      'Medication Reminders',
+                      importance: Importance.max,
+                      priority: Priority.high,
+                    ),
+                  ),
+                  androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+                  payload: 'test_short',
+                );
+                print('✅ Short scheduled');
+              } catch (e) {
+                print('❌ Short failed: $e');
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Scheduled 3 tests. Close app NOW!'),
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            onPressed: () async {
+              final notificationService = NotificationService();
+              await notificationService.showTestNotification();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Test notification sent!')),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () async {
+              final plugin = FlutterLocalNotificationsPlugin();
+              final requests = await plugin.pendingNotificationRequests();
+
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text('Pending: ${requests.length}'),
+                  content: SizedBox(
+                    width: double.maxFinite,
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: requests.isEmpty
+                          ? [
+                              const Text(
+                                '❌ No pending notifications!\n\nThis means scheduling failed.',
+                              ),
+                            ]
+                          : requests
+                                .map(
+                                  (r) => Card(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        'ID: ${r.id}\n'
+                                        'Title: ${r.title}\n'
+                                        'Body: ${r.body}\n'
+                                        'Payload: ${r.payload}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.clear_all),
+            onPressed: () async {
+              final plugin = FlutterLocalNotificationsPlugin();
+              await plugin.cancelAll();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('All notifications cleared')),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              if (authProvider.currentUser != null) {
+                reminderProvider.loadReminders(authProvider.currentUser!.id);
+                adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
@@ -150,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           children: [
-            _buildStreakSummary(context, adherenceProvider),
+            _buildStreakSummary(adherenceProvider),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -172,20 +390,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : reminderProvider.reminders.isEmpty
                   ? _buildEmptyState()
-                  : _buildReminderList(
-                      reminderProvider.reminders,
-                      adherenceProvider,
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: reminderProvider.reminders.length,
+                      itemBuilder: (context, index) {
+                        final reminder = reminderProvider.reminders[index];
+                        return _buildReminderCard(reminder, adherenceProvider);
+                      },
                     ),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddReminderScreen()),
           );
+          // Reload data when returning from add screen
+          if (result == true && authProvider.currentUser != null) {
+            reminderProvider.loadReminders(authProvider.currentUser!.id);
+            adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+          }
         },
         backgroundColor: Colors.teal,
         child: const Icon(Icons.add),
@@ -193,15 +423,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStreakSummary(
-    BuildContext context,
-    AdherenceProvider adherenceProvider,
-  ) {
+  Widget _buildStreakSummary(AdherenceProvider adherenceProvider) {
     final takenCount = adherenceProvider.todayLogs
         .where((log) => log.status == AdherenceStatus.taken)
         .length;
+    final skippedCount = adherenceProvider.todayLogs
+        .where((log) => log.status == AdherenceStatus.skipped)
+        .length;
     final totalCount = adherenceProvider.todayLogs.length;
-    final pendingCount = totalCount - takenCount;
+    final pendingCount = totalCount - takenCount - skippedCount;
+
+    print(
+      '📊 Stats - Taken: $takenCount, Skipped: $skippedCount, Total: $totalCount, Pending: $pendingCount',
+    );
 
     return Container(
       width: double.infinity,
@@ -246,20 +480,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildReminderList(
-    List<ReminderModel> reminders,
-    AdherenceProvider adherenceProvider,
-  ) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: reminders.length,
-      itemBuilder: (context, index) {
-        final reminder = reminders[index];
-        return _buildReminderCard(reminder, adherenceProvider);
-      },
-    );
-  }
-
   Widget _buildReminderCard(
     ReminderModel reminder,
     AdherenceProvider adherenceProvider,
@@ -300,24 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            if (status != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: status.statusColor.withOpacity(
-                    0.1,
-                  ), // No Color() wrapper needed
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${status.statusIcon} ${status.statusDisplayName.toUpperCase()}', // Use statusDisplayName
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: status.statusColor, // No Color() wrapper needed
-                  ),
-                ),
-              ),
+            if (status != null) _buildStatusBadge(status),
           ],
         ),
         subtitle: Column(
@@ -343,7 +546,6 @@ class _HomeScreenState extends State<HomeScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Quick action buttons
             IconButton(
               icon: const Icon(Icons.check_circle, color: Colors.green),
               onPressed: status == null
@@ -395,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (value == 'action') {
                   _showReminderActionDialog(reminder);
                 } else if (value == 'edit') {
-                  // TODO: Navigate to edit screen
+                  _navigateToEditScreen(reminder);
                 } else if (value == 'delete') {
                   _showDeleteDialog(reminder);
                 }
@@ -404,6 +606,24 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         onTap: () => _showReminderActionDialog(reminder),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(AdherenceStatus status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: status.statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '${status.statusIcon} ${status.statusDisplayName.toUpperCase()}',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: status.statusColor,
+        ),
       ),
     );
   }
@@ -471,15 +691,39 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () async {
               final reminderProvider = context.read<ReminderProvider>();
-              await reminderProvider.deleteReminder(reminder.id);
+              final authProvider = context.read<AuthProvider>();
+
+              print('🗑️ Deleting reminder: ${reminder.id}');
+
+              bool success = await reminderProvider.deleteReminder(reminder.id);
+
               if (mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Reminder deleted'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+
+                if (success) {
+                  // Reload reminders
+                  if (authProvider.currentUser != null) {
+                    reminderProvider.loadReminders(
+                      authProvider.currentUser!.id,
+                    );
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Reminder deleted'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        reminderProvider.errorMessage ?? 'Failed to delete',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),

@@ -1,29 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:medication_reminder_app/widgets/notification_permission_dialog.dart';
 import 'package:provider/provider.dart';
 import '../models/reminder_model.dart';
-import '../providers/auth_provider.dart';
 import '../providers/reminder_provider.dart';
 
-class AddReminderScreen extends StatefulWidget {
-  const AddReminderScreen({super.key});
+class EditReminderScreen extends StatefulWidget {
+  final ReminderModel reminder;
+
+  const EditReminderScreen({super.key, required this.reminder});
 
   @override
-  State<AddReminderScreen> createState() => _AddReminderScreenState();
+  State<EditReminderScreen> createState() => _EditReminderScreenState();
 }
 
-class _AddReminderScreenState extends State<AddReminderScreen> {
+class _EditReminderScreenState extends State<EditReminderScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _dosageController = TextEditingController();
-  final _notesController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _dosageController;
+  late TextEditingController _notesController;
 
-  ReminderType _selectedType = ReminderType.medication;
-  ReminderFrequency _selectedFrequency = ReminderFrequency.daily;
+  late ReminderType _selectedType;
+  late ReminderFrequency _selectedFrequency;
+  late List<String> _selectedTimes;
+  late List<int> _selectedDays;
+  late int _intervalDays;
 
-  List<String> _selectedTimes = ['08:00'];
-  List<int> _selectedDays = [1, 2, 3, 4, 5, 6, 7]; // Default all days
-  int _intervalDays = 2;
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.reminder.name);
+    _dosageController = TextEditingController(
+      text: widget.reminder.dosage ?? '',
+    );
+    _notesController = TextEditingController(text: widget.reminder.notes ?? '');
+    _selectedType = widget.reminder.type;
+    _selectedFrequency = widget.reminder.frequency;
+    _selectedTimes = List.from(widget.reminder.times);
+    _selectedDays = widget.reminder.daysOfWeek ?? [1, 2, 3, 4, 5, 6, 7];
+    _intervalDays = widget.reminder.intervalDays ?? 2;
+  }
 
   @override
   void dispose() {
@@ -54,77 +68,58 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     });
   }
 
-  Future<void> _saveReminder() async {
+  Future<void> _updateReminder() async {
     if (_formKey.currentState!.validate()) {
-      if (_formKey.currentState!.validate()) {
-        final authProvider = context.read<AuthProvider>();
-        final reminderProvider = context.read<ReminderProvider>();
+      final reminderProvider = context.read<ReminderProvider>();
 
-        if (authProvider.currentUser == null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Please login first')));
-          return;
-        }
+      final updatedReminder = ReminderModel(
+        id: widget.reminder.id,
+        userId: widget.reminder.userId,
+        name: _nameController.text.trim(),
+        type: _selectedType,
+        dosage: _dosageController.text.trim().isEmpty
+            ? null
+            : _dosageController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        times: _selectedTimes,
+        frequency: _selectedFrequency,
+        daysOfWeek: _selectedFrequency == ReminderFrequency.specificDays
+            ? _selectedDays
+            : null,
+        intervalDays: _selectedFrequency == ReminderFrequency.customInterval
+            ? _intervalDays
+            : null,
+        isActive: widget.reminder.isActive,
+        createdAt: widget.reminder.createdAt,
+        updatedAt: DateTime.now(),
+      );
 
-        // Check if notifications are enabled
-        if (!reminderProvider.notificationsEnabled) {
-          final enableNotifications = await showDialog<bool>(
-            context: context,
-            builder: (context) => const NotificationPermissionDialog(),
+      print('✏️ Updating reminder: ${updatedReminder.id}');
+      print('📝 New name: ${updatedReminder.name}');
+      print('⏰ New times: ${updatedReminder.times}');
+
+      bool success = await reminderProvider.updateReminder(updatedReminder);
+
+      if (mounted) {
+        if (success) {
+          Navigator.pop(context, true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reminder updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
           );
-
-          if (enableNotifications == true) {
-            await reminderProvider.initializeNotifications();
-          }
-        }
-
-        final reminder = ReminderModel(
-          userId: authProvider.currentUser!.id,
-          name: _nameController.text.trim(),
-          type: _selectedType,
-          dosage: _dosageController.text.trim().isEmpty
-              ? null
-              : _dosageController.text.trim(),
-          notes: _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
-          times: _selectedTimes,
-          frequency: _selectedFrequency,
-          daysOfWeek: _selectedFrequency == ReminderFrequency.specificDays
-              ? _selectedDays
-              : null,
-          intervalDays: _selectedFrequency == ReminderFrequency.customInterval
-              ? _intervalDays
-              : null,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-
-        bool success = await reminderProvider.createReminder(reminder);
-
-        if (mounted) {
-          if (success) {
-            // Return true to indicate success
-            Navigator.pop(context, true);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Reminder created successfully! Notifications scheduled.',
-                ),
-                backgroundColor: Colors.green,
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                reminderProvider.errorMessage ?? 'Failed to update reminder',
               ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  reminderProvider.errorMessage ?? 'Failed to create reminder',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
     }
@@ -134,7 +129,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Reminder'),
+        title: const Text('Edit Reminder'),
         backgroundColor: Colors.teal,
       ),
       body: SingleChildScrollView(
@@ -279,37 +274,6 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                 const SizedBox(height: 16),
               ],
 
-              // Custom Interval
-              if (_selectedFrequency == ReminderFrequency.customInterval) ...[
-                Row(
-                  children: [
-                    const Text('Repeat every', style: TextStyle(fontSize: 14)),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 80,
-                      child: TextFormField(
-                        initialValue: _intervalDays.toString(),
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _intervalDays = int.tryParse(value) ?? 2;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('days'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-
               // Time Selection
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -344,7 +308,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
 
               // Save Button
               ElevatedButton(
-                onPressed: _saveReminder,
+                onPressed: _updateReminder,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 50),
                   backgroundColor: Colors.teal,
@@ -353,7 +317,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                   ),
                 ),
                 child: const Text(
-                  'Save Reminder',
+                  'Update Reminder',
                   style: TextStyle(fontSize: 18),
                 ),
               ),

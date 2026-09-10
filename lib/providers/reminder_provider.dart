@@ -56,6 +56,11 @@ class ReminderProvider extends ChangeNotifier {
 
       // Schedule notifications for the reminder
       if (_notificationsEnabled) {
+        // Cancel any existing first (safety)
+        await _notificationService.cancelReminderNotifications(
+          createdReminder.id,
+        );
+        // Then schedule
         await _notificationService.scheduleReminderNotifications(
           createdReminder,
         );
@@ -105,6 +110,8 @@ class ReminderProvider extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
+      print('🗑️ Provider: Deleting reminder: $reminderId');
+
       await _reminderService.deleteReminder(reminderId);
 
       // Cancel notifications
@@ -112,10 +119,16 @@ class ReminderProvider extends ChangeNotifier {
         await _notificationService.cancelReminderNotifications(reminderId);
       }
 
+      // Remove from local list immediately
+      _reminders.removeWhere((r) => r.id == reminderId);
+
       _isLoading = false;
       notifyListeners();
+
+      print('✅ Provider: Reminder deleted successfully');
       return true;
     } catch (e) {
+      print('❌ Provider: Failed to delete: $e');
       _errorMessage = e.toString();
       _isLoading = false;
       notifyListeners();
@@ -150,11 +163,7 @@ class ReminderProvider extends ChangeNotifier {
 
   // Show test notification
   Future<void> showTestNotification() async {
-    await _notificationService.showImmediateNotification(
-      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title: 'Test Notification',
-      body: 'This is a test notification from MediRemind!',
-    );
+    await _notificationService.showTestNotification();
   }
 
   void clearError() {

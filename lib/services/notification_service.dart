@@ -1,8 +1,10 @@
-import 'dart:typed_data';
+import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:flutter/foundation.dart';
 import '../models/reminder_model.dart';
 
 class NotificationService {
@@ -14,6 +16,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  bool _canScheduleExactAlarms = false;
 
   // Initialize the notification service
   Future<void> initialize() async {
@@ -23,18 +26,19 @@ class NotificationService {
     tz.initializeTimeZones();
 
     try {
-      final TimezoneInfo currentTimeZone =
+      final TimezoneInfo timezoneInfo =
           await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(currentTimeZone.identifier));
+      final String currentTimeZone = timezoneInfo.identifier;
+      tz.setLocalLocation(tz.getLocation(currentTimeZone));
+      debugPrint('🌍 Timezone set to: $currentTimeZone');
     } catch (e) {
       tz.setLocalLocation(tz.getLocation('UTC'));
+      debugPrint('⚠️ Failed to get timezone, using UTC: $e');
     }
 
-    // Android initialization settings
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS initialization settings
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
           requestAlertPermission: true,
@@ -47,22 +51,50 @@ class NotificationService {
       iOS: iosSettings,
     );
 
-    // FIX: `settings` is a positional param, not named.
     await _notificationsPlugin.initialize(
       settings: settings,
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
-    // Create notification channels for Android
     await _createNotificationChannels();
 
+    // ADD THIS LINE
+    await _checkExactAlarmPermission();
+
     _initialized = true;
+    debugPrint('✅ NotificationService initialized');
+  }
+
+  // Add this method to check exact alarm permission
+  Future<void> _checkExactAlarmPermission() async {
+    if (!Platform.isAndroid) {
+      _canScheduleExactAlarms = true;
+      return;
+    }
+
+    try {
+      final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
+          _notificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
+
+      if (androidPlugin != null) {
+        _canScheduleExactAlarms =
+            await androidPlugin.canScheduleExactNotifications() ?? false;
+        debugPrint('🔔 Can schedule exact alarms: $_canScheduleExactAlarms');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to check exact alarm permission: $e');
+      _canScheduleExactAlarms = false;
+    }
   }
 
   // Create notification channels
   Future<void> _createNotificationChannels() async {
-    // Channel for medication reminders
-    final AndroidNotificationChannel medicationChannel =
+    debugPrint('📢 Creating notification channels...');
+
+    const AndroidNotificationChannel medicationChannel =
         AndroidNotificationChannel(
           'medication_reminders',
           'Medication Reminders',
@@ -70,29 +102,16 @@ class NotificationService {
           importance: Importance.max,
           playSound: true,
           enableVibration: true,
-          vibrationPattern: Int64List.fromList([0, 500, 500, 500]),
         );
 
-    // Channel for habit reminders
     const AndroidNotificationChannel habitChannel = AndroidNotificationChannel(
       'habit_reminders',
       'Habit Reminders',
       description: 'Notifications for habit reminders',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
     );
-
-    // Channel for missed dose alerts
-    const AndroidNotificationChannel missedDoseChannel =
-        AndroidNotificationChannel(
-          'missed_dose_alerts',
-          'Missed Dose Alerts',
-          description: 'Alerts for missed doses',
-          importance: Importance.max,
-          playSound: true,
-          enableVibration: true,
-        );
 
     final androidImplementation = _notificationsPlugin
         .resolvePlatformSpecificImplementation<
@@ -101,11 +120,14 @@ class NotificationService {
 
     await androidImplementation?.createNotificationChannel(medicationChannel);
     await androidImplementation?.createNotificationChannel(habitChannel);
-    await androidImplementation?.createNotificationChannel(missedDoseChannel);
+
+    debugPrint('✅ Notification channels created');
   }
 
   // Request permissions
   Future<bool> requestPermissions() async {
+    debugPrint('🔐 Requesting notification permissions...');
+
     final androidImplementation = _notificationsPlugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -116,16 +138,16 @@ class NotificationService {
           IOSFlutterLocalNotificationsPlugin
         >();
 
-    // Android permission
     final bool? androidPermission = await androidImplementation
         ?.requestNotificationsPermission();
-
-    // iOS permission
     final bool? iosPermission = await iosImplementation?.requestPermissions(
       alert: true,
       badge: true,
       sound: true,
     );
+
+    debugPrint('📱 Android permission: $androidPermission');
+    debugPrint('🍎 iOS permission: $iosPermission');
 
     return (androidPermission ?? true) && (iosPermission ?? true);
   }
@@ -139,12 +161,16 @@ class NotificationService {
       await initialize();
     }
 
-    // Parse the time
-    final parts = time.split(':');
+    final normalizedTime = _normalizeTime(time);
+
+    debugPrint(
+      '📅 Scheduling notification for: ${reminder.name} at $normalizedTime',
+    );
+
+    final parts = normalizedTime.split(':');
     final hour = int.parse(parts[0]);
     final minute = int.parse(parts[1]);
 
-    // Calculate next occurrence
     final now = tz.TZDateTime.now(tz.local);
     var scheduledDate = tz.TZDateTime(
       tz.local,
@@ -155,15 +181,12 @@ class NotificationService {
       minute,
     );
 
-    // If time already passed today, schedule for tomorrow
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    // Check frequency and adjust schedule
     scheduledDate = _getNextValidDate(reminder, scheduledDate);
 
-    // Create notification details
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'medication_reminders',
@@ -173,16 +196,12 @@ class NotificationService {
           priority: Priority.high,
           category: AndroidNotificationCategory.reminder,
           visibility: NotificationVisibility.public,
-          ongoing: false,
-          autoCancel: false,
-          fullScreenIntent: true,
         );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
     const NotificationDetails notificationDetails = NotificationDetails(
@@ -190,27 +209,59 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    // Create unique notification ID
-    final notificationId = _generateNotificationId(reminder.id, time);
+    final notificationId = _generateNotificationId(reminder.id, normalizedTime);
 
-    // FIX: id, title, body, scheduledDate, notificationDetails are all
-    // positional params — only androidScheduleMode/payload/matchDateTimeComponents are named.
-    await _notificationsPlugin.zonedSchedule(
-      id: notificationId,
-      title: reminder.type == ReminderType.medication
-          ? '💊 Medication Reminder'
-          : '🎯 Habit Reminder',
-      body: _buildNotificationBody(reminder),
-      scheduledDate: scheduledDate,
-      notificationDetails: notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: reminder.id,
-      matchDateTimeComponents: _getMatchDateTimeComponents(reminder),
-    );
+    // Determine schedule mode based on permission
+    AndroidScheduleMode scheduleMode;
+    if (_canScheduleExactAlarms) {
+      scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
+      debugPrint('🎯 Using EXACT scheduling');
+    } else {
+      scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+      debugPrint('⚠️ Using INEXACT scheduling (exact alarm not permitted)');
+    }
+
+    try {
+      await _notificationsPlugin.zonedSchedule(
+        id: notificationId,
+        title: reminder.type == ReminderType.medication
+            ? '💊 Medication Reminder'
+            : '🎯 Habit Reminder',
+        body: _buildNotificationBody(reminder),
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: scheduleMode,
+        payload: reminder.id,
+      );
+
+      debugPrint(
+        '✅ Notification scheduled: ID=$notificationId, Time=$scheduledDate',
+      );
+    } catch (e) {
+      debugPrint('❌ Scheduling failed: $e');
+
+      // Force inexact as last resort
+      await _notificationsPlugin.zonedSchedule(
+        id: notificationId,
+        title: reminder.type == ReminderType.medication
+            ? '💊 Medication Reminder'
+            : '🎯 Habit Reminder',
+        body: _buildNotificationBody(reminder),
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: reminder.id,
+      );
+
+      debugPrint('✅ Retry scheduled (inexact)');
+    }
   }
 
   // Schedule all notifications for a reminder
   Future<void> scheduleReminderNotifications(ReminderModel reminder) async {
+    debugPrint('📋 Scheduling all notifications for: ${reminder.name}');
+    debugPrint('📋 Times: ${reminder.times}');
+
     for (String time in reminder.times) {
       await scheduleReminderNotification(reminder: reminder, time: time);
     }
@@ -218,81 +269,38 @@ class NotificationService {
 
   // Cancel notifications for a reminder
   Future<void> cancelReminderNotifications(String reminderId) async {
+    debugPrint('🔕 Cancelling notifications for reminder: $reminderId');
+
     final pendingNotifications = await _notificationsPlugin
         .pendingNotificationRequests();
+
+    debugPrint(
+      '📋 Pending notifications before cancel: ${pendingNotifications.length}',
+    );
 
     for (var notification in pendingNotifications) {
       if (notification.payload == reminderId) {
         await _notificationsPlugin.cancel(id: notification.id);
+        debugPrint('❌ Cancelled notification: ${notification.id}');
       }
     }
   }
 
-  // Cancel all notifications
-  Future<void> cancelAllNotifications() async {
-    await _notificationsPlugin.cancelAll();
-  }
-
-  // Show immediate notification (for testing or missed dose alert)
-  Future<void> showImmediateNotification({
-    required int id,
-    required String title,
-    required String body,
-    String? payload,
-  }) async {
+  // Show immediate notification for testing
+  Future<void> showTestNotification() async {
     if (!_initialized) {
       await initialize();
     }
 
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'missed_dose_alerts',
-          'Missed Dose Alerts',
-          channelDescription: 'Alerts for missed doses',
-          importance: Importance.max,
-          priority: Priority.max,
-          category: AndroidNotificationCategory.alarm,
-          visibility: NotificationVisibility.public,
-        );
-
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // FIX: id, title, body, notificationDetails are positional; only payload is named.
-    await _notificationsPlugin.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: notificationDetails,
-      payload: payload,
-    );
-  }
-
-  // Snooze notification
-  Future<void> snoozeNotification({
-    required int notificationId,
-    required String title,
-    required String body,
-    Duration snoozeDuration = const Duration(minutes: 10),
-  }) async {
-    final scheduledTime = tz.TZDateTime.now(tz.local).add(snoozeDuration);
+    debugPrint('🧪 Showing test notification...');
 
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
           'medication_reminders',
           'Medication Reminders',
-          channelDescription: 'Snoozed medication reminders',
-          importance: Importance.high,
+          channelDescription: 'Test notification',
+          importance: Importance.max,
           priority: Priority.high,
-          category: AndroidNotificationCategory.reminder,
         );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
@@ -306,30 +314,46 @@ class NotificationService {
       iOS: iosDetails,
     );
 
-    // FIX: id, title, body, scheduledDate, notificationDetails are positional.
-    await _notificationsPlugin.zonedSchedule(
-      id: notificationId,
-      title: title,
-      body: body,
-      scheduledDate: scheduledTime,
+    await _notificationsPlugin.show(
+      id: 9999,
+      title: 'Test Notification',
+      body: 'This is a test notification from MediRemind!',
       notificationDetails: notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: 'snoozed',
     );
+
+    debugPrint('✅ Test notification shown');
   }
 
   // Handle notification tap
   void _onNotificationTap(NotificationResponse response) {
-    if (response.payload != null && response.payload!.isNotEmpty) {
-      // Navigate to reminder details or mark as done
-      print('Notification tapped with payload: ${response.payload}');
-    }
+    debugPrint('👆 Notification tapped: ${response.payload}');
+    // Handle navigation here
   }
 
-  // Generate unique notification ID
+  // Generate unique notification ID - DETERMINISTIC
   int _generateNotificationId(String reminderId, String time) {
-    final hash = '$reminderId$time'.hashCode;
-    return hash.abs() % 100000; // Keep within reasonable range
+    // Normalize the time string to ensure consistency
+    final normalizedTime = _normalizeTime(time);
+
+    // Create a stable string
+    final key = '$reminderId|$normalizedTime';
+
+    // Use a simpler deterministic hash (Dart's hashCode is NOT stable across runs!)
+    int hash = 0;
+    for (int i = 0; i < key.length; i++) {
+      hash = (hash * 31 + key.codeUnitAt(i)) & 0x7FFFFFFF;
+    }
+    return hash;
+  }
+
+  // Normalize time to HH:mm format
+  String _normalizeTime(String time) {
+    // If already HH:mm, return as-is
+    if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(time)) {
+      final parts = time.split(':');
+      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+    }
+    return time;
   }
 
   // Build notification body
@@ -356,7 +380,6 @@ class NotificationService {
         return date;
 
       case ReminderFrequency.specificDays:
-        // Find next matching day
         int attempts = 0;
         while (attempts < 7) {
           if (reminder.daysOfWeek!.contains(date.weekday)) {
@@ -368,7 +391,6 @@ class NotificationService {
         return date;
 
       case ReminderFrequency.customInterval:
-        // For simplicity, schedule for the next occurrence
         return date;
 
       default:
@@ -376,34 +398,9 @@ class NotificationService {
     }
   }
 
-  // Get match date time components for recurring notifications
-  DateTimeComponents? _getMatchDateTimeComponents(ReminderModel reminder) {
-    switch (reminder.frequency) {
-      case ReminderFrequency.daily:
-        return DateTimeComponents.time;
-
-      case ReminderFrequency.specificDays:
-        return DateTimeComponents.dayOfWeekAndTime;
-
-      case ReminderFrequency.customInterval:
-        return null; // Custom interval needs different handling
-
-      default:
-        return DateTimeComponents.time;
-    }
-  }
-
-  // Check if notifications are enabled
-  Future<bool> areNotificationsEnabled() async {
-    final androidImplementation = _notificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-
-    if (androidImplementation != null) {
-      return await androidImplementation.areNotificationsEnabled() ?? false;
-    }
-
-    return true;
+  // Get pending notifications count
+  Future<int> getPendingNotificationCount() async {
+    final pending = await _notificationsPlugin.pendingNotificationRequests();
+    return pending.length;
   }
 }

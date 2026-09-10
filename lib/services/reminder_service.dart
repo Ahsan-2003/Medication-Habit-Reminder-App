@@ -84,10 +84,17 @@ class ReminderService {
   }
 
   // Delete a reminder
-  Future<void> deleteReminder(String reminderId) async {
+  // Delete a reminder
+  Future<bool> deleteReminder(String reminderId) async {
     try {
+      print('🗑️ Service: Attempting to delete reminder: $reminderId');
+
       await _firestore.collection('reminders').doc(reminderId).delete();
+
+      print('✅ Service: Reminder deleted successfully');
+      return true;
     } catch (e) {
+      print('❌ Service: Failed to delete reminder: $e');
       throw Exception('Failed to delete reminder: $e');
     }
   }
