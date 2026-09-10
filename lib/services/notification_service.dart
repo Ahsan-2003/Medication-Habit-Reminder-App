@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -402,5 +403,61 @@ class NotificationService {
   Future<int> getPendingNotificationCount() async {
     final pending = await _notificationsPlugin.pendingNotificationRequests();
     return pending.length;
+  }
+
+  // Notify caregiver about missed dose
+  Future<void> notifyCaregiverMissedDose({
+    required String patientName,
+    required String reminderName,
+    required String scheduledTime,
+    required String dosage,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+
+    debugPrint(
+      '📢 Notifying caregiver: $patientName missed $reminderName at $scheduledTime',
+    );
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'missed_dose_alerts',
+          'Missed Dose Alerts',
+          channelDescription: 'Alerts for missed doses',
+          importance: Importance.max,
+          priority: Priority.max,
+          category: AndroidNotificationCategory.alarm,
+          visibility: NotificationVisibility.public,
+          styleInformation: BigTextStyleInformation(''),
+          color: Colors.red,
+        );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.critical,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(
+      100000,
+    );
+
+    await _notificationsPlugin.show(
+      id: notificationId,
+      title: '⚠️ Missed Dose: $patientName',
+      body:
+          '$patientName missed $reminderName ($dosage) scheduled for $scheduledTime',
+      notificationDetails: notificationDetails,
+      payload: 'missed_dose',
+    );
+
+    debugPrint('✅ Caregiver notification sent');
   }
 }

@@ -138,4 +138,24 @@ class CaregiverProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  Future<bool> updateMissedDoseSettings({
+    required String linkId,
+    required bool notifyOnMissedDose,
+    required int graceMinutes,
+  }) async {
+    try {
+      await _caregiverService.updateMissedDoseSettings(
+        linkId: linkId,
+        notifyOnMissedDose: notifyOnMissedDose,
+        graceMinutes: graceMinutes,
+      );
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 }

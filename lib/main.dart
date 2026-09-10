@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medication_reminder_app/firebase_options.dart';
 import 'package:medication_reminder_app/providers/adherence_provider.dart';
+import 'package:medication_reminder_app/providers/alert_provider.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/patient_overview_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => StreakProvider()),
         ChangeNotifierProvider(create: (_) => CaregiverProvider()),
         ChangeNotifierProvider(create: (_) => PatientOverviewProvider()),
+        ChangeNotifierProvider(create: (_) => AlertProvider()),
       ],
       child: MaterialApp(
         title: 'MediRemind',

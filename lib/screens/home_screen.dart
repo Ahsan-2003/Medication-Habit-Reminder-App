@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:medication_reminder_app/providers/alert_provider.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
+import 'package:medication_reminder_app/screens/alerts_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_dashboard_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
+import 'package:medication_reminder_app/services/missed_dose_service.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final adherenceProvider = context.read<AdherenceProvider>();
     final streakProvider = context.read<StreakProvider>();
     final caregiverProvider = context.read<CaregiverProvider>();
+    final alertProvider = context.read<AlertProvider>();
     final authProvider = context.read<AuthProvider>();
 
     await reminderProvider.initializeNotifications();
@@ -49,11 +53,12 @@ class _HomeScreenState extends State<HomeScreen> {
       streakProvider.loadStreak(authProvider.currentUser!.id);
       streakProvider.checkAndResetStreak(authProvider.currentUser!.id);
 
-      // Load caregiver data based on role
       if (authProvider.currentUser!.role == 'patient') {
         caregiverProvider.loadPatientLink(authProvider.currentUser!.id);
-      } else if (authProvider.currentUser!.role == 'caregiver') {
+        alertProvider.loadPatientAlerts(authProvider.currentUser!.id);
+      } else {
         caregiverProvider.loadCaregiverLinks(authProvider.currentUser!.id);
+        alertProvider.loadCaregiverAlerts(authProvider.currentUser!.id);
       }
     }
   }
@@ -452,6 +457,92 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
           ),
+
+          // Alerts icon with badge
+          Consumer<AlertProvider>(
+            builder: (context, alertProvider, child) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    tooltip: 'Alerts',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AlertsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (alertProvider.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${alertProvider.unreadCount > 9 ? "9+" : alertProvider.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+
+          IconButton(
+            icon: const Icon(Icons.warning, color: Colors.orange),
+            tooltip: 'Test Missed Dose',
+            onPressed: () async {
+              final authProvider = context.read<AuthProvider>();
+              final reminderProvider = context.read<ReminderProvider>();
+
+              if (authProvider.currentUser == null) return;
+              if (reminderProvider.reminders.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Add a reminder first')),
+                );
+                return;
+              }
+
+              // Simulate a missed dose: use the first reminder with a time 5 min ago
+              final reminder = reminderProvider.reminders.first;
+              final pastTime = DateTime.now().subtract(
+                const Duration(minutes: 40),
+              );
+
+              final service = MissedDoseService();
+              await service.checkAndNotifyMissedDose(
+                reminder: reminder,
+                scheduledTime: pastTime,
+              );
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Missed dose alert tested!'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            },
+          ),
+
           // Refresh shortcut
           IconButton(
             icon: const Icon(Icons.refresh),

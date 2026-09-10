@@ -360,8 +360,13 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
                   subtitle: const Text('Notify caregiver when you miss a dose'),
                   trailing: Switch(
                     value: link.notifyOnMissedDose,
-                    onChanged: (value) {
-                      // TODO: implement
+                    onChanged: (value) async {
+                      final provider = context.read<CaregiverProvider>();
+                      await provider.updateMissedDoseSettings(
+                        linkId: link.id,
+                        notifyOnMissedDose: value,
+                        graceMinutes: link.missedDoseGraceMinutes,
+                      );
                     },
                     activeColor: Colors.teal,
                   ),
@@ -372,9 +377,7 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
                   title: const Text('Grace Period'),
                   subtitle: Text('${link.missedDoseGraceMinutes} minutes'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    // TODO: implement grace period picker
-                  },
+                  onTap: () => _showGraceePeriodPicker(link),
                 ),
               ],
             ),
@@ -391,5 +394,54 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _showGraceePeriodPicker(CaregiverLinkModel link) async {
+    final options = [15, 30, 60, 120, 240]; // minutes
+
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Grace Period',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'How long to wait after a missed dose before alerting your caregiver',
+              style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            ...options.map((minutes) {
+              final label = minutes < 60
+                  ? '$minutes minutes'
+                  : '${minutes ~/ 60} hour${minutes >= 120 ? "s" : ""}';
+
+              return RadioListTile<int>(
+                value: minutes,
+                groupValue: link.missedDoseGraceMinutes,
+                onChanged: (value) => Navigator.pop(context, value),
+                title: Text(label),
+                activeColor: Colors.teal,
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null && mounted) {
+      final provider = context.read<CaregiverProvider>();
+      await provider.updateMissedDoseSettings(
+        linkId: link.id,
+        notifyOnMissedDose: link.notifyOnMissedDose,
+        graceMinutes: selected,
+      );
+    }
   }
 }
