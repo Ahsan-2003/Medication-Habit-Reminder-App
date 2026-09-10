@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:medication_reminder_app/providers/streak_provider.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
+import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder_model.dart';
@@ -32,16 +34,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void _initializeApp() async {
     final reminderProvider = context.read<ReminderProvider>();
     final adherenceProvider = context.read<AdherenceProvider>();
+    final streakProvider = context.read<StreakProvider>();
     final authProvider = context.read<AuthProvider>();
 
-    // Initialize notifications
     await reminderProvider.initializeNotifications();
 
-    // Load reminders and logs
     if (authProvider.currentUser != null) {
-      print('👤 Loading data for user: ${authProvider.currentUser!.id}');
       reminderProvider.loadReminders(authProvider.currentUser!.id);
       adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+      streakProvider.loadStreak(authProvider.currentUser!.id);
+      streakProvider.checkAndResetStreak(authProvider.currentUser!.id);
     }
   }
 
@@ -51,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ) async {
     final authProvider = context.read<AuthProvider>();
     final adherenceProvider = context.read<AdherenceProvider>();
+    final streakProvider = context.read<StreakProvider>();
     final notificationService = NotificationService();
 
     if (authProvider.currentUser == null) return;
@@ -68,8 +71,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (success) {
           await notificationService.cancelReminderNotifications(reminder.id);
           _showSnackBar('Marked as taken! 💊', Colors.green);
-          // Reload today's logs to update counts
           adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+          // Recalculate streak
+          await streakProvider.recalculateStreak(authProvider.currentUser!.id);
         }
         break;
 
@@ -83,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
           await notificationService.cancelReminderNotifications(reminder.id);
           _showSnackBar('Marked as skipped', Colors.orange);
           adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+          await streakProvider.recalculateStreak(authProvider.currentUser!.id);
         }
         break;
 
@@ -161,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = context.watch<AuthProvider>();
     final reminderProvider = context.watch<ReminderProvider>();
     final adherenceProvider = context.watch<AdherenceProvider>();
+    final streakProvider = context.watch<StreakProvider>();
 
     print('🔄 Building HomeScreen');
     print('📋 Reminders: ${reminderProvider.reminders.length}');
@@ -347,6 +353,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (authProvider.currentUser != null) {
                 reminderProvider.loadReminders(authProvider.currentUser!.id);
                 adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+                streakProvider.loadStreak(authProvider.currentUser!.id);
               }
             },
           ),
@@ -368,7 +375,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           children: [
-            _buildStreakSummary(adherenceProvider),
+            // REPLACE the streak summary with StreakCard
+            StreakCard(
+              streak: streakProvider.streak,
+              weeklyData: streakProvider.weeklyData,
+            ),
+
+            // Daily stats
+            _buildDailyStats(adherenceProvider),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -423,62 +437,137 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStreakSummary(AdherenceProvider adherenceProvider) {
+  // Add this new method for compact daily stats
+  Widget _buildDailyStats(AdherenceProvider adherenceProvider) {
     final takenCount = adherenceProvider.todayLogs
         .where((log) => log.status == AdherenceStatus.taken)
         .length;
-    final skippedCount = adherenceProvider.todayLogs
-        .where((log) => log.status == AdherenceStatus.skipped)
-        .length;
     final totalCount = adherenceProvider.todayLogs.length;
-    final pendingCount = totalCount - takenCount - skippedCount;
-
-    print(
-      '📊 Stats - Taken: $takenCount, Skipped: $skippedCount, Total: $totalCount, Pending: $pendingCount',
-    );
+    final pendingCount = totalCount - takenCount;
 
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem(
-            icon: Icons.local_fire_department,
-            value: '0',
-            label: 'Day Streak',
-            color: Colors.orange,
-          ),
-          _buildDivider(),
-          _buildStatItem(
+          _buildSmallStat(
             icon: Icons.check_circle,
             value: '$takenCount/$totalCount',
-            label: 'Completed',
+            label: 'Today',
             color: Colors.green,
           ),
-          _buildDivider(),
-          _buildStatItem(
+          Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.3)),
+          _buildSmallStat(
             icon: Icons.schedule,
             value: '$pendingCount',
             label: 'Pending',
             color: Colors.blue,
           ),
+          Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.3)),
+          _buildSmallStat(
+            icon: Icons.local_fire_department,
+            value:
+                '${adherenceProvider.todayLogs.where((log) => log.status == AdherenceStatus.taken).length}',
+            label: 'Done Today',
+            color: Colors.orange,
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildSmallStat({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
+  }
+
+  // Widget _buildStreakSummary(AdherenceProvider adherenceProvider) {
+  //   final takenCount = adherenceProvider.todayLogs
+  //       .where((log) => log.status == AdherenceStatus.taken)
+  //       .length;
+  //   final skippedCount = adherenceProvider.todayLogs
+  //       .where((log) => log.status == AdherenceStatus.skipped)
+  //       .length;
+  //   final totalCount = adherenceProvider.todayLogs.length;
+  //   final pendingCount = totalCount - takenCount - skippedCount;
+
+  //   print(
+  //     '📊 Stats - Taken: $takenCount, Skipped: $skippedCount, Total: $totalCount, Pending: $pendingCount',
+  //   );
+
+  //   return Container(
+  //     width: double.infinity,
+  //     margin: const EdgeInsets.all(16),
+  //     padding: const EdgeInsets.all(20),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.grey.withOpacity(0.1),
+  //           blurRadius: 10,
+  //           offset: const Offset(0, 5),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //       children: [
+  //         _buildStatItem(
+  //           icon: Icons.local_fire_department,
+  //           value: '0',
+  //           label: 'Day Streak',
+  //           color: Colors.orange,
+  //         ),
+  //         _buildDivider(),
+  //         _buildStatItem(
+  //           icon: Icons.check_circle,
+  //           value: '$takenCount/$totalCount',
+  //           label: 'Completed',
+  //           color: Colors.green,
+  //         ),
+  //         _buildDivider(),
+  //         _buildStatItem(
+  //           icon: Icons.schedule,
+  //           value: '$pendingCount',
+  //           label: 'Pending',
+  //           color: Colors.blue,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildReminderCard(
     ReminderModel reminder,
