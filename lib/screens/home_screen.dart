@@ -58,6 +58,61 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildCaregiverHome() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.teal.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.visibility, size: 64, color: Colors.teal),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Caregiver Account',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Tap the People icon at the top to view and manage your linked patients.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CaregiverDashboardScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.people),
+              label: const Text('View My Patients'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Run the 3 alarm tests
   Future<void> _runAlarmTests(BuildContext context) async {
     final plugin = FlutterLocalNotificationsPlugin();
@@ -536,67 +591,81 @@ class _HomeScreenState extends State<HomeScreen> {
             colors: [Colors.teal.shade50, Colors.white],
           ),
         ),
-        child: Column(
-          children: [
-            // REPLACE the streak summary with StreakCard
-            StreakCard(
-              streak: streakProvider.streak,
-              weeklyData: streakProvider.weeklyData,
-            ),
-
-            // Daily stats
-            _buildDailyStats(adherenceProvider),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: authProvider.currentUser?.role == 'caregiver'
+            ? _buildCaregiverHome()
+            : Column(
                 children: [
-                  const Text(
-                    "Today's Reminders",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  // REPLACE the streak summary with StreakCard
+                  StreakCard(
+                    streak: streakProvider.streak,
+                    weeklyData: streakProvider.weeklyData,
                   ),
-                  Text(
-                    '${reminderProvider.reminders.length} active',
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                  // Daily stats
+                  _buildDailyStats(adherenceProvider),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Today's Reminders",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '${reminderProvider.reminders.length} active',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: reminderProvider.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : reminderProvider.reminders.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            itemCount: reminderProvider.reminders.length,
+                            itemBuilder: (context, index) {
+                              final reminder =
+                                  reminderProvider.reminders[index];
+                              return _buildReminderCard(
+                                reminder,
+                                adherenceProvider,
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: reminderProvider.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : reminderProvider.reminders.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      itemCount: reminderProvider.reminders.length,
-                      itemBuilder: (context, index) {
-                        final reminder = reminderProvider.reminders[index];
-                        return _buildReminderCard(reminder, adherenceProvider);
-                      },
-                    ),
-            ),
-          ],
-        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddReminderScreen()),
-          );
-          // Reload data when returning from add screen
-          if (result == true && authProvider.currentUser != null) {
-            reminderProvider.loadReminders(authProvider.currentUser!.id);
-            adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
-          }
-        },
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: authProvider.currentUser?.role == 'caregiver'
+          ? null // Caregivers don't add reminders
+          : FloatingActionButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddReminderScreen(),
+                  ),
+                );
+                if (result == true && authProvider.currentUser != null) {
+                  reminderProvider.loadReminders(authProvider.currentUser!.id);
+                  adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
+                }
+              },
+              backgroundColor: Colors.teal,
+              child: const Icon(Icons.add),
+            ),
     );
   }
 

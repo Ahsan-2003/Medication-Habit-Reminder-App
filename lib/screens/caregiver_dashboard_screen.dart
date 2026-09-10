@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:medication_reminder_app/screens/caregiver_patient_view_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/caregiver_provider.dart';
@@ -188,10 +189,10 @@ class _CaregiverDashboardScreenState extends State<CaregiverDashboardScreen> {
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // TODO: Navigate to patient adherence view (Feature 7)
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Viewing ${link.patientName}\'s progress'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CaregiverPatientViewScreen(link: link),
                 ),
               );
             },
