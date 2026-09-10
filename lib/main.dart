@@ -1,29 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:medication_reminder_app/firebase_options.dart';
-import 'package:medication_reminder_app/providers/adherence_provider.dart';
-import 'package:medication_reminder_app/providers/alert_provider.dart';
-import 'package:medication_reminder_app/providers/analytics_provider.dart';
-import 'package:medication_reminder_app/providers/caregiver_provider.dart';
-import 'package:medication_reminder_app/providers/patient_overview_provider.dart';
-import 'package:medication_reminder_app/providers/streak_provider.dart';
-import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'providers/auth_provider.dart';
 import 'providers/reminder_provider.dart';
+import 'providers/adherence_provider.dart';
+import 'providers/streak_provider.dart';
+import 'providers/caregiver_provider.dart';
+import 'providers/patient_overview_provider.dart';
+import 'providers/alert_provider.dart';
+import 'providers/analytics_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'utils/app_themes.dart';
 
-// Global navigator key for notifications
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // Initialize notifications
-  final notificationService = NotificationService();
-  await notificationService.initialize();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -34,6 +29,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ReminderProvider()),
         ChangeNotifierProvider(create: (_) => AdherenceProvider()),
@@ -43,11 +39,18 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AlertProvider()),
         ChangeNotifierProvider(create: (_) => AnalyticsProvider()),
       ],
-      child: MaterialApp(
-        title: 'MediRemind',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(primarySwatch: Colors.teal, useMaterial3: true),
-        home: const AuthWrapper(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            title: 'MediRemind',
+            debugShowCheckedModeBanner: false,
+            navigatorKey: navigatorKey,
+            theme: AppThemes.lightTheme,
+            darkTheme: AppThemes.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const AuthWrapper(),
+          );
+        },
       ),
     );
   }

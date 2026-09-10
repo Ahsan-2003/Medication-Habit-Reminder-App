@@ -3,11 +3,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:medication_reminder_app/providers/alert_provider.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
+import 'package:medication_reminder_app/providers/theme_provider.dart';
 import 'package:medication_reminder_app/screens/alerts_screen.dart';
 import 'package:medication_reminder_app/screens/analytics_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_dashboard_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
+import 'package:medication_reminder_app/screens/settings_screen.dart';
 import 'package:medication_reminder_app/services/missed_dose_service.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
@@ -459,6 +461,21 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
+          // Quick dark mode toggle
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return IconButton(
+                icon: Icon(
+                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                ),
+                tooltip: themeProvider.isDarkMode
+                    ? 'Switch to light mode'
+                    : 'Switch to dark mode',
+                onPressed: () => themeProvider.toggleTheme(),
+              );
+            },
+          ),
+
           IconButton(
             icon: const Icon(Icons.insights),
             tooltip: 'Analytics',
@@ -606,6 +623,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
                   break;
+                case 'settings':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
+                  break;
                 case 'logout':
                   _confirmLogout(context, authProvider);
                   break;
@@ -671,7 +696,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
               const PopupMenuDivider(),
 
               // Logout
@@ -694,7 +728,9 @@ class _HomeScreenState extends State<HomeScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.teal.shade50, Colors.white],
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
+                : [Colors.teal.shade50, Colors.white],
           ),
         ),
         child: authProvider.currentUser?.role == 'caregiver'
