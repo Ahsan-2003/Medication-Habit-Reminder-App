@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
+import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
@@ -358,9 +359,14 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.person),
+            icon: const Icon(Icons.people),
             onPressed: () {
-              _showProfileDialog(context, authProvider);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CaregiverInviteScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -511,63 +517,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
-  // Widget _buildStreakSummary(AdherenceProvider adherenceProvider) {
-  //   final takenCount = adherenceProvider.todayLogs
-  //       .where((log) => log.status == AdherenceStatus.taken)
-  //       .length;
-  //   final skippedCount = adherenceProvider.todayLogs
-  //       .where((log) => log.status == AdherenceStatus.skipped)
-  //       .length;
-  //   final totalCount = adherenceProvider.todayLogs.length;
-  //   final pendingCount = totalCount - takenCount - skippedCount;
-
-  //   print(
-  //     '📊 Stats - Taken: $takenCount, Skipped: $skippedCount, Total: $totalCount, Pending: $pendingCount',
-  //   );
-
-  //   return Container(
-  //     width: double.infinity,
-  //     margin: const EdgeInsets.all(16),
-  //     padding: const EdgeInsets.all(20),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(20),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.grey.withOpacity(0.1),
-  //           blurRadius: 10,
-  //           offset: const Offset(0, 5),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //       children: [
-  //         _buildStatItem(
-  //           icon: Icons.local_fire_department,
-  //           value: '0',
-  //           label: 'Day Streak',
-  //           color: Colors.orange,
-  //         ),
-  //         _buildDivider(),
-  //         _buildStatItem(
-  //           icon: Icons.check_circle,
-  //           value: '$takenCount/$totalCount',
-  //           label: 'Completed',
-  //           color: Colors.green,
-  //         ),
-  //         _buildDivider(),
-  //         _buildStatItem(
-  //           icon: Icons.schedule,
-  //           value: '$pendingCount',
-  //           label: 'Pending',
-  //           color: Colors.blue,
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildReminderCard(
     ReminderModel reminder,
