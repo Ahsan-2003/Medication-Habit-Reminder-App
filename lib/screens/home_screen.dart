@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
+import 'package:medication_reminder_app/screens/caregiver_dashboard_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
-import 'package:medication_reminder_app/screens/link_to_patient_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
@@ -49,9 +49,11 @@ class _HomeScreenState extends State<HomeScreen> {
       streakProvider.loadStreak(authProvider.currentUser!.id);
       streakProvider.checkAndResetStreak(authProvider.currentUser!.id);
 
-      // Load caregiver link only for patients
+      // Load caregiver data based on role
       if (authProvider.currentUser!.role == 'patient') {
         caregiverProvider.loadPatientLink(authProvider.currentUser!.id);
+      } else if (authProvider.currentUser!.role == 'caregiver') {
+        caregiverProvider.loadCaregiverLinks(authProvider.currentUser!.id);
       }
     }
   }
@@ -370,13 +372,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 'Caregiver',
             onPressed: () {
               if (authProvider.currentUser?.role == 'caregiver') {
+                // Caregivers go to their dashboard
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const LinkToPatientScreen(),
+                    builder: (context) => const CaregiverDashboardScreen(),
                   ),
-                );
+                ).then((_) {
+                  // Reload caregiver links when returning
+                  if (authProvider.currentUser != null) {
+                    context.read<CaregiverProvider>().loadCaregiverLinks(
+                      authProvider.currentUser!.id,
+                    );
+                  }
+                });
               } else {
+                // Patients go to invite screen
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -386,7 +397,6 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
           ),
-
           // Refresh shortcut
           IconButton(
             icon: const Icon(Icons.refresh),
