@@ -4,6 +4,7 @@ import 'package:medication_reminder_app/providers/alert_provider.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
 import 'package:medication_reminder_app/screens/alerts_screen.dart';
+import 'package:medication_reminder_app/screens/analytics_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_dashboard_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
@@ -458,6 +459,19 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
+          IconButton(
+            icon: const Icon(Icons.insights),
+            tooltip: 'Analytics',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AnalyticsScreen(),
+                ),
+              );
+            },
+          ),
+
           // Alerts icon with badge
           Consumer<AlertProvider>(
             builder: (context, alertProvider, child) {
@@ -505,6 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
+          // Test Missed Dose Icon
           IconButton(
             icon: const Icon(Icons.warning, color: Colors.orange),
             tooltip: 'Test Missed Dose',
