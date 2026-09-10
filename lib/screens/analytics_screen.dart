@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:medication_reminder_app/services/pdf_service.dart';
 import 'package:provider/provider.dart';
 import '../models/analytics_model.dart';
 import '../providers/analytics_provider.dart';
@@ -25,6 +28,105 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     });
   }
 
+  Future<void> _exportPdf(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+    final provider = context.read<AnalyticsProvider>();
+
+    if (authProvider.currentUser == null) return;
+
+    // Show generating indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generating report...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final pdfBytes = await provider.generateReport(
+      userId: authProvider.currentUser!.id,
+      patientName: authProvider.currentUser!.name,
+      patientEmail: authProvider.currentUser!.email,
+      days: 30,
+    );
+
+    if (!mounted) return;
+    Navigator.pop(context); // Close loading dialog
+
+    if (pdfBytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.errorMessage ?? 'Failed to generate report'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show preview/share options
+    _showPdfOptions(context, pdfBytes);
+  }
+
+  void _showPdfOptions(BuildContext context, Uint8List pdfBytes) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Adherence Report',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              title: const Text('Preview PDF'),
+              subtitle: const Text('View and print the report'),
+              onTap: () async {
+                Navigator.pop(context);
+                final pdfService = PdfService();
+                final filename =
+                    'adherence_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                await pdfService.previewPdf(pdfBytes, filename);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share, color: Colors.blue),
+              title: const Text('Share PDF'),
+              subtitle: const Text('Send to doctor, family, or save'),
+              onTap: () async {
+                Navigator.pop(context);
+                final pdfService = PdfService();
+                final filename =
+                    'adherence_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+                await pdfService.sharePdf(pdfBytes, filename);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AnalyticsProvider>();
@@ -36,6 +138,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Export Report',
+            onPressed: () => _exportPdf(context),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
