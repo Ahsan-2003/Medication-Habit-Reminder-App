@@ -9,6 +9,7 @@ import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
 import 'package:medication_reminder_app/screens/settings_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
+import 'package:medication_reminder_app/widgets/app_background.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
 import '../models/reminder_model.dart';
@@ -69,16 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final authProvider = context.read<AuthProvider>();
     final userName = authProvider.currentUser?.name ?? 'Caregiver';
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: Theme.of(context).brightness == Brightness.dark
-              ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
-              : [Colors.teal.shade50, Colors.white],
-        ),
-      ),
+    return AppBackground(
       child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
