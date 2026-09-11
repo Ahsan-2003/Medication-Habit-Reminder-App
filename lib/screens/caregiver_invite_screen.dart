@@ -286,9 +286,14 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
   }
 
   Widget _buildLinkedView(CaregiverLinkModel link) {
+    // ⭐ Watch the provider for live updates
+    final provider = context.watch<CaregiverProvider>();
+    final liveLink = provider.patientLink ?? link;
+
     return SingleChildScrollView(
       child: Column(
         children: [
+          // ── Linked header ──
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -328,7 +333,7 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            link.caregiverName ?? 'Caregiver',
+                            liveLink.caregiverName ?? 'Caregiver',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -350,50 +355,90 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 24),
+
+          // ── Settings ──
           Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
+                // Missed Dose Alerts toggle
                 ListTile(
-                  leading: const Icon(Icons.notifications, color: Colors.teal),
+                  leading: Icon(
+                    Icons.notifications,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Missed Dose Alerts'),
                   subtitle: const Text('Notify caregiver when you miss a dose'),
                   trailing: Switch(
-                    value: link.notifyOnMissedDose,
+                    value: liveLink.notifyOnMissedDose,
                     onChanged: (value) async {
-                      final provider = context.read<CaregiverProvider>();
-                      await provider.updateMissedDoseSettings(
-                        linkId: link.id,
+                      final success = await provider.updateMissedDoseSettings(
+                        linkId: liveLink.id,
                         notifyOnMissedDose: value,
-                        graceMinutes: link.missedDoseGraceMinutes,
+                        graceMinutes: liveLink.missedDoseGraceMinutes,
+                      );
+
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? value
+                                      ? 'Missed dose alerts enabled'
+                                      : 'Missed dose alerts disabled'
+                                : 'Failed to update',
+                          ),
+                          backgroundColor: success ? Colors.green : Colors.red,
+                          duration: const Duration(seconds: 2),
+                        ),
                       );
                     },
                     activeColor: Colors.teal,
                   ),
                 ),
                 const Divider(height: 1),
+
+                // Grace Period
                 ListTile(
-                  leading: const Icon(Icons.timer, color: Colors.teal),
+                  leading: Icon(
+                    Icons.timer,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Grace Period'),
-                  subtitle: Text('${link.missedDoseGraceMinutes} minutes'),
+                  subtitle: Text(
+                    _formatGracePeriod(liveLink.missedDoseGraceMinutes),
+                  ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _showGraceePeriodPicker(link),
+                  onTap: () => _showGraceePeriodPicker(liveLink),
                 ),
               ],
             ),
           ),
+
           const SizedBox(height: 24),
+
+          // ── Remove caregiver ──
           TextButton.icon(
-            onPressed: () => _revokeLink(link),
+            onPressed: () => _revokeLink(liveLink),
             icon: const Icon(Icons.link_off, color: Colors.red),
             label: const Text(
               'Remove Caregiver',
               style: TextStyle(color: Colors.red),
             ),
           ),
+
+          const SizedBox(height: 24),
         ],
       ),
     );
+  }
+
+  String _formatGracePeriod(int minutes) {
+    if (minutes < 60) return '$minutes minutes';
+    final hours = minutes ~/ 60;
+    return '$hours hour${hours > 1 ? "s" : ""}';
   }
 
   Future<void> _showGraceePeriodPicker(CaregiverLinkModel link) async {
