@@ -6,7 +6,6 @@ import 'package:medication_reminder_app/screens/alerts_screen.dart';
 import 'package:medication_reminder_app/screens/analytics_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_dashboard_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
-import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
 import 'package:medication_reminder_app/screens/settings_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/app_background.dart';

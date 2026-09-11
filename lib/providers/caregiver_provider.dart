@@ -151,15 +151,28 @@ class CaregiverProvider extends ChangeNotifier {
     required int graceMinutes,
   }) async {
     try {
+      _errorMessage = null;
+      notifyListeners();
+
+      // 1. Update Firestore
       await _caregiverService.updateMissedDoseSettings(
         linkId: linkId,
         notifyOnMissedDose: notifyOnMissedDose,
         graceMinutes: graceMinutes,
       );
+
+      // 2. ⭐ IMMEDIATELY update local state so UI refreshes
+      if (_patientLink != null && _patientLink!.id == linkId) {
+        _patientLink = _patientLink!.copyWith(
+          notifyOnMissedDose: notifyOnMissedDose,
+          missedDoseGraceMinutes: graceMinutes,
+        );
+      }
+
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;
     }
