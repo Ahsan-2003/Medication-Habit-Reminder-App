@@ -411,7 +411,7 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
                     _formatGracePeriod(liveLink.missedDoseGraceMinutes),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _showGraceePeriodPicker(liveLink),
+                  onTap: () => _showGracePeriodPicker(liveLink),
                 ),
               ],
             ),
@@ -441,11 +441,14 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
     return '$hours hour${hours > 1 ? "s" : ""}';
   }
 
-  Future<void> _showGraceePeriodPicker(CaregiverLinkModel link) async {
-    final options = [15, 30, 60, 120, 240]; // minutes
+  Future<void> _showGracePeriodPicker(CaregiverLinkModel link) async {
+    final options = [15, 30, 60, 120, 240];
 
     final selected = await showModalBottomSheet<int>(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => Container(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -456,37 +459,54 @@ class _CaregiverInviteScreenState extends State<CaregiverInviteScreen> {
               'Grace Period',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
               'How long to wait after a missed dose before alerting your caregiver',
               style: TextStyle(color: Colors.grey, fontSize: 13),
             ),
             const SizedBox(height: 16),
             ...options.map((minutes) {
-              final label = minutes < 60
-                  ? '$minutes minutes'
-                  : '${minutes ~/ 60} hour${minutes >= 120 ? "s" : ""}';
+              final label = _formatGracePeriod(minutes);
+              final isSelected = link.missedDoseGraceMinutes == minutes;
 
-              return RadioListTile<int>(
-                value: minutes,
-                groupValue: link.missedDoseGraceMinutes,
-                onChanged: (value) => Navigator.pop(context, value),
+              return ListTile(
+                leading: Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: isSelected ? Colors.teal : Colors.grey,
+                ),
                 title: Text(label),
-                activeColor: Colors.teal,
+                onTap: () => Navigator.pop(context, minutes),
               );
             }),
+            const SizedBox(height: 8),
           ],
         ),
       ),
     );
 
-    if (selected != null && mounted) {
-      final provider = context.read<CaregiverProvider>();
-      await provider.updateMissedDoseSettings(
-        linkId: link.id,
-        notifyOnMissedDose: link.notifyOnMissedDose,
-        graceMinutes: selected,
-      );
-    }
+    if (selected == null || !mounted) return;
+
+    // ⭐ Update via provider — provider notifies listeners, UI updates instantly
+    final provider = context.read<CaregiverProvider>();
+    final success = await provider.updateMissedDoseSettings(
+      linkId: link.id,
+      notifyOnMissedDose: link.notifyOnMissedDose,
+      graceMinutes: selected,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Grace period set to ${_formatGracePeriod(selected)}'
+              : 'Failed to update',
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 }
