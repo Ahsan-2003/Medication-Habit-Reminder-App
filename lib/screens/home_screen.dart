@@ -49,221 +49,380 @@ class _HomeScreenState extends State<HomeScreen> {
     await reminderProvider.initializeNotifications();
 
     if (authProvider.currentUser != null) {
-      reminderProvider.loadReminders(authProvider.currentUser!.id);
-      adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
-      streakProvider.loadStreak(authProvider.currentUser!.id);
-      streakProvider.checkAndResetStreak(authProvider.currentUser!.id);
+      final user = authProvider.currentUser!;
 
-      if (authProvider.currentUser!.role == 'patient') {
-        caregiverProvider.loadPatientLink(authProvider.currentUser!.id);
-        alertProvider.loadPatientAlerts(authProvider.currentUser!.id);
+      if (user.role == 'caregiver') {
+        // Caregiver: only load patients & alerts
+        caregiverProvider.loadCaregiverLinks(user.id);
+        alertProvider.loadCaregiverAlerts(user.id);
       } else {
-        caregiverProvider.loadCaregiverLinks(authProvider.currentUser!.id);
-        alertProvider.loadCaregiverAlerts(authProvider.currentUser!.id);
+        // Patient: load all data
+        reminderProvider.loadReminders(user.id);
+        adherenceProvider.loadTodayLogs(user.id);
+        streakProvider.loadStreak(user.id);
+        streakProvider.checkAndResetStreak(user.id);
+        caregiverProvider.loadPatientLink(user.id);
+        alertProvider.loadPatientAlerts(user.id);
       }
     }
   }
 
   Widget _buildCaregiverHome() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.visibility, size: 64, color: Colors.teal),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Caregiver Account',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Tap the People icon at the top to view and manage your linked patients.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CaregiverDashboardScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.people),
-              label: const Text('View My Patients'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
+    final authProvider = context.read<AuthProvider>();
+    final userName = authProvider.currentUser?.name ?? 'Caregiver';
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
+              : [Colors.teal.shade50, Colors.white],
         ),
       ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 24),
+
+              // Welcome illustration
+              Center(
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.teal.shade400, Colors.teal.shade700],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.teal.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.favorite,
+                    size: 56,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Greeting
+              Text(
+                'Welcome, $userName',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                "You're signed in as a caregiver.\nMonitor your loved ones' adherence from here.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 40),
+
+              // Primary action button
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CaregiverDashboardScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.people),
+                label: const Text('View My Patients'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Secondary action button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AlertsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.notifications_outlined),
+                label: const Text('View Alerts'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.teal,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  side: const BorderSide(color: Colors.teal, width: 1.5),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 40),
+
+              // Info card
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline,
+                          color: Colors.amber[700],
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Quick Tips',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTipRow(
+                      Icons.link,
+                      'Link new patients using their invite code',
+                    ),
+                    const SizedBox(height: 10),
+                    _buildTipRow(
+                      Icons.warning_amber,
+                      'Get notified when a dose is missed',
+                    ),
+                    const SizedBox(height: 10),
+                    _buildTipRow(
+                      Icons.bar_chart,
+                      'Track adherence trends in analytics',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipRow(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.teal),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   // Run the 3 alarm tests
-  Future<void> _runAlarmTests(BuildContext context) async {
-    final plugin = FlutterLocalNotificationsPlugin();
+  // Future<void> _runAlarmTests(BuildContext context) async {
+  //   final plugin = FlutterLocalNotificationsPlugin();
 
-    // Test 1: Exact alarm (15 seconds)
-    final exactTime = tz.TZDateTime.now(
-      tz.local,
-    ).add(const Duration(seconds: 15));
-    print('🧪 TEST 1: Exact alarm at $exactTime');
+  //   // Test 1: Exact alarm (15 seconds)
+  //   final exactTime = tz.TZDateTime.now(
+  //     tz.local,
+  //   ).add(const Duration(seconds: 15));
+  //   print('🧪 TEST 1: Exact alarm at $exactTime');
 
-    try {
-      await plugin.zonedSchedule(
-        id: 88881,
-        title: '🧪 TEST 1: Exact Alarm',
-        body: 'This is exactAllowWhileIdle',
-        scheduledDate: exactTime,
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'medication_reminders',
-            'Medication Reminders',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: 'test_exact',
-      );
-      print('✅ Exact scheduled');
-    } catch (e) {
-      print('❌ Exact failed: $e');
-    }
+  //   try {
+  //     await plugin.zonedSchedule(
+  //       id: 88881,
+  //       title: '🧪 TEST 1: Exact Alarm',
+  //       body: 'This is exactAllowWhileIdle',
+  //       scheduledDate: exactTime,
+  //       notificationDetails: const NotificationDetails(
+  //         android: AndroidNotificationDetails(
+  //           'medication_reminders',
+  //           'Medication Reminders',
+  //           importance: Importance.max,
+  //           priority: Priority.high,
+  //         ),
+  //       ),
+  //       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+  //       payload: 'test_exact',
+  //     );
+  //     print('✅ Exact scheduled');
+  //   } catch (e) {
+  //     print('❌ Exact failed: $e');
+  //   }
 
-    // Test 2: Inexact alarm (20 seconds)
-    final inexactTime = tz.TZDateTime.now(
-      tz.local,
-    ).add(const Duration(seconds: 20));
-    print('🧪 TEST 2: Inexact alarm at $inexactTime');
+  //   // Test 2: Inexact alarm (20 seconds)
+  //   final inexactTime = tz.TZDateTime.now(
+  //     tz.local,
+  //   ).add(const Duration(seconds: 20));
+  //   print('🧪 TEST 2: Inexact alarm at $inexactTime');
 
-    try {
-      await plugin.zonedSchedule(
-        id: 88882,
-        title: '🧪 TEST 2: Inexact Alarm',
-        body: 'This is inexactAllowWhileIdle',
-        scheduledDate: inexactTime,
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'medication_reminders',
-            'Medication Reminders',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: 'test_inexact',
-      );
-      print('✅ Inexact scheduled');
-    } catch (e) {
-      print('❌ Inexact failed: $e');
-    }
+  //   try {
+  //     await plugin.zonedSchedule(
+  //       id: 88882,
+  //       title: '🧪 TEST 2: Inexact Alarm',
+  //       body: 'This is inexactAllowWhileIdle',
+  //       scheduledDate: inexactTime,
+  //       notificationDetails: const NotificationDetails(
+  //         android: AndroidNotificationDetails(
+  //           'medication_reminders',
+  //           'Medication Reminders',
+  //           importance: Importance.max,
+  //           priority: Priority.high,
+  //         ),
+  //       ),
+  //       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+  //       payload: 'test_inexact',
+  //     );
+  //     print('✅ Inexact scheduled');
+  //   } catch (e) {
+  //     print('❌ Inexact failed: $e');
+  //   }
 
-    // Test 3: Short delay (5 seconds)
-    final immediateTime = tz.TZDateTime.now(
-      tz.local,
-    ).add(const Duration(seconds: 5));
-    print('🧪 TEST 3: Immediate alarm at $immediateTime');
+  //   // Test 3: Short delay (5 seconds)
+  //   final immediateTime = tz.TZDateTime.now(
+  //     tz.local,
+  //   ).add(const Duration(seconds: 5));
+  //   print('🧪 TEST 3: Immediate alarm at $immediateTime');
 
-    try {
-      await plugin.zonedSchedule(
-        id: 88883,
-        title: '🧪 TEST 3: Short Delay',
-        body: 'This is 5 seconds away',
-        scheduledDate: immediateTime,
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'medication_reminders',
-            'Medication Reminders',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: 'test_short',
-      );
-      print('✅ Short scheduled');
-    } catch (e) {
-      print('❌ Short failed: $e');
-    }
+  //   try {
+  //     await plugin.zonedSchedule(
+  //       id: 88883,
+  //       title: '🧪 TEST 3: Short Delay',
+  //       body: 'This is 5 seconds away',
+  //       scheduledDate: immediateTime,
+  //       notificationDetails: const NotificationDetails(
+  //         android: AndroidNotificationDetails(
+  //           'medication_reminders',
+  //           'Medication Reminders',
+  //           importance: Importance.max,
+  //           priority: Priority.high,
+  //         ),
+  //       ),
+  //       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+  //       payload: 'test_short',
+  //     );
+  //     print('✅ Short scheduled');
+  //   } catch (e) {
+  //     print('❌ Short failed: $e');
+  //   }
 
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Scheduled 3 tests. Close app NOW!'),
-        duration: Duration(seconds: 5),
-      ),
-    );
-  }
+  //   if (!context.mounted) return;
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     const SnackBar(
+  //       content: Text('Scheduled 3 tests. Close app NOW!'),
+  //       duration: Duration(seconds: 5),
+  //     ),
+  //   );
+  // }
 
-  // Show pending notifications dialog
-  Future<void> _showPendingNotifications(BuildContext context) async {
-    final plugin = FlutterLocalNotificationsPlugin();
-    final requests = await plugin.pendingNotificationRequests();
+  // // Show pending notifications dialog
+  // Future<void> _showPendingNotifications(BuildContext context) async {
+  //   final plugin = FlutterLocalNotificationsPlugin();
+  //   final requests = await plugin.pendingNotificationRequests();
 
-    if (!context.mounted) return;
+  //   if (!context.mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Pending: ${requests.length}'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: requests.isEmpty
-                ? [
-                    const Text(
-                      '❌ No pending notifications!\n\nThis means scheduling failed.',
-                    ),
-                  ]
-                : requests
-                      .map(
-                        (r) => Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              'ID: ${r.id}\n'
-                              'Title: ${r.title}\n'
-                              'Body: ${r.body}\n'
-                              'Payload: ${r.payload}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text('Pending: ${requests.length}'),
+  //       content: SizedBox(
+  //         width: double.maxFinite,
+  //         child: ListView(
+  //           shrinkWrap: true,
+  //           children: requests.isEmpty
+  //               ? [
+  //                   const Text(
+  //                     '❌ No pending notifications!\n\nThis means scheduling failed.',
+  //                   ),
+  //                 ]
+  //               : requests
+  //                     .map(
+  //                       (r) => Card(
+  //                         child: Padding(
+  //                           padding: const EdgeInsets.all(8.0),
+  //                           child: Text(
+  //                             'ID: ${r.id}\n'
+  //                             'Title: ${r.title}\n'
+  //                             'Body: ${r.body}\n'
+  //                             'Payload: ${r.payload}',
+  //                             style: const TextStyle(fontSize: 12),
+  //                           ),
+  //                         ),
+  //                       ),
+  //                     )
+  //                     .toList(),
+  //         ),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('Close'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   // Confirm logout
   Future<void> _confirmLogout(
@@ -414,9 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final adherenceProvider = context.watch<AdherenceProvider>();
     final streakProvider = context.watch<StreakProvider>();
 
-    print('🔄 Building HomeScreen');
-    print('📋 Reminders: ${reminderProvider.reminders.length}');
-    print('📊 Today Logs: ${adherenceProvider.todayLogs.length}');
+    final isCaregiver = authProvider.currentUser?.role == 'caregiver';
 
     return Scaffold(
       appBar: AppBar(
@@ -425,40 +582,34 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // ── Analytics ──
-          IconButton(
-            icon: const Icon(Icons.insights),
-            tooltip: 'Analytics',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AnalyticsScreen(),
-                ),
-              );
-            },
-          ),
+          // Analytics
+          // Analytics (only for patients)
+          if (!isCaregiver)
+            IconButton(
+              icon: const Icon(Icons.insights),
+              tooltip: 'Analytics',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AnalyticsScreen(),
+                  ),
+                );
+              },
+            ),
 
-          // ── Caregiver / Patients (role-based) ──
+          // Caregiver / Patients
           IconButton(
             icon: const Icon(Icons.people_outline),
-            tooltip: authProvider.currentUser?.role == 'caregiver'
-                ? 'My Patients'
-                : 'Caregiver',
+            tooltip: isCaregiver ? 'My Patients' : 'Caregiver',
             onPressed: () {
-              if (authProvider.currentUser?.role == 'caregiver') {
+              if (isCaregiver) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const CaregiverDashboardScreen(),
                   ),
-                ).then((_) {
-                  if (authProvider.currentUser != null) {
-                    context.read<CaregiverProvider>().loadCaregiverLinks(
-                      authProvider.currentUser!.id,
-                    );
-                  }
-                });
+                );
               } else {
                 Navigator.push(
                   context,
@@ -470,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // ── Overflow Menu ──
+          // Overflow menu
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             tooltip: 'More options',
@@ -490,7 +641,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
                   break;
-
                 case 'alerts':
                   Navigator.push(
                     context,
@@ -499,11 +649,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                   break;
-
                 case 'profile':
                   _showProfileDialog(context, authProvider);
                   break;
-
                 case 'settings':
                   Navigator.push(
                     context,
@@ -512,26 +660,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                   break;
-
                 case 'logout':
                   _confirmLogout(context, authProvider);
                   break;
               }
             },
             itemBuilder: (context) => [
-              // Refresh
               const PopupMenuItem(
                 value: 'refresh',
                 child: Row(
                   children: [
-                    Icon(Icons.refresh, size: 20, color: Colors.grey),
+                    Icon(Icons.refresh, size: 20),
                     SizedBox(width: 12),
                     Text('Refresh'),
                   ],
                 ),
               ),
-
-              // Alerts with badge
               PopupMenuItem(
                 value: 'alerts',
                 child: Row(
@@ -540,11 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (context, alertProvider, _) {
                         return Stack(
                           children: [
-                            const Icon(
-                              Icons.notifications_outlined,
-                              size: 20,
-                              color: Colors.redAccent,
-                            ),
+                            const Icon(Icons.notifications_outlined, size: 20),
                             if (alertProvider.unreadCount > 0)
                               Positioned(
                                 right: 0,
@@ -570,44 +710,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-
               const PopupMenuDivider(),
-
-              // Profile
               const PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.person_outline,
-                      size: 20,
-                      color: Colors.lightBlue,
-                    ),
+                    Icon(Icons.person_outline, size: 20),
                     SizedBox(width: 12),
                     Text('Profile'),
                   ],
                 ),
               ),
-
-              // Settings
               const PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.settings_outlined,
-                      size: 20,
-                      color: Colors.black,
-                    ),
+                    Icon(Icons.settings_outlined, size: 20),
                     SizedBox(width: 12),
                     Text('Settings'),
                   ],
                 ),
               ),
-
               const PopupMenuDivider(),
-
-              // Logout
               const PopupMenuItem(
                 value: 'logout',
                 child: Row(
@@ -622,75 +746,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
-                : [Colors.teal.shade50, Colors.white],
-          ),
-        ),
-        child: authProvider.currentUser?.role == 'caregiver'
-            ? _buildCaregiverHome()
-            : Column(
-                children: [
-                  // REPLACE the streak summary with StreakCard
-                  StreakCard(
-                    streak: streakProvider.streak,
-                    weeklyData: streakProvider.weeklyData,
-                  ),
-                  // Daily stats
-                  _buildDailyStats(adherenceProvider),
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Today's Reminders",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${reminderProvider.reminders.length} active',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: reminderProvider.isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : reminderProvider.reminders.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            itemCount: reminderProvider.reminders.length,
-                            itemBuilder: (context, index) {
-                              final reminder =
-                                  reminderProvider.reminders[index];
-                              return _buildReminderCard(
-                                reminder,
-                                adherenceProvider,
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-      ),
-      floatingActionButton: authProvider.currentUser?.role == 'caregiver'
-          ? null // Caregivers don't add reminders
+
+      // ⭐ Role-based body
+      body: isCaregiver
+          ? _buildCaregiverHome()
+          : _buildPatientHome(
+              authProvider,
+              reminderProvider,
+              adherenceProvider,
+              streakProvider,
+            ),
+
+      // ⭐ Role-based FAB (hidden for caregivers)
+      floatingActionButton: isCaregiver
+          ? null
           : FloatingActionButton(
               onPressed: () async {
                 final result = await Navigator.push(
@@ -707,6 +776,66 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: Colors.teal,
               child: const Icon(Icons.add),
             ),
+    );
+  }
+
+  Widget _buildPatientHome(
+    AuthProvider authProvider,
+    ReminderProvider reminderProvider,
+    AdherenceProvider adherenceProvider,
+    StreakProvider streakProvider,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [const Color(0xFF121212), const Color(0xFF1E1E1E)]
+              : [Colors.teal.shade50, Colors.white],
+        ),
+      ),
+      child: Column(
+        children: [
+          StreakCard(
+            streak: streakProvider.streak,
+            weeklyData: streakProvider.weeklyData,
+          ),
+          _buildDailyStats(adherenceProvider),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Today's Reminders",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '${reminderProvider.reminders.length} active',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: reminderProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : reminderProvider.reminders.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: reminderProvider.reminders.length,
+                    itemBuilder: (context, index) {
+                      final reminder = reminderProvider.reminders[index];
+                      return _buildReminderCard(reminder, adherenceProvider);
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
