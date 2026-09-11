@@ -387,29 +387,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _navigateToEditScreen(ReminderModel reminder) async {
-    debugPrint('✏️ Navigating to edit screen for: ${reminder.name}');
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditReminderScreen(reminder: reminder),
-      ),
-    );
-
-    // Reload data when returning from edit screen
-    if (result == true && mounted) {
-      final authProvider = context.read<AuthProvider>();
-      final reminderProvider = context.read<ReminderProvider>();
-      final adherenceProvider = context.read<AdherenceProvider>();
-
-      if (authProvider.currentUser != null) {
-        reminderProvider.loadReminders(authProvider.currentUser!.id);
-        adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -510,16 +487,23 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              // Refresh
+              PopupMenuItem(
                 value: 'refresh',
                 child: Row(
                   children: [
-                    Icon(Icons.refresh, size: 20),
-                    SizedBox(width: 12),
-                    Text('Refresh'),
+                    Icon(
+                      Icons.refresh,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Refresh'),
                   ],
                 ),
               ),
+
+              // Alerts
               PopupMenuItem(
                 value: 'alerts',
                 child: Row(
@@ -528,7 +512,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (context, alertProvider, _) {
                         return Stack(
                           children: [
-                            const Icon(Icons.notifications_outlined, size: 20),
+                            Icon(
+                              Icons.notifications_outlined,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                             if (alertProvider.unreadCount > 0)
                               Positioned(
                                 right: 0,
@@ -554,28 +542,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+
               const PopupMenuDivider(),
-              const PopupMenuItem(
+
+              // Profile
+              PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline, size: 20),
-                    SizedBox(width: 12),
-                    Text('Profile'),
+                    Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Profile'),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+
+              // Settings
+              PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings_outlined, size: 20),
-                    SizedBox(width: 12),
-                    Text('Settings'),
+                    Icon(
+                      Icons.settings_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Settings'),
                   ],
                 ),
               ),
+
               const PopupMenuDivider(),
+
+              // Logout
               const PopupMenuItem(
                 value: 'logout',
                 child: Row(
@@ -693,15 +697,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(
+              Theme.of(context).brightness == Brightness.dark ? 0.25 : 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -710,27 +716,34 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildSmallStat(
             icon: Icons.check_circle,
-            value: '$takenCount/$totalCount',
-            label: 'Today',
-            color: Colors.green,
+            value: '$takenCount',
+            label: 'Taken',
+            color: const Color(0xFF2E7D32),
           ),
-          Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.3)),
+          _verticalDivider(),
           _buildSmallStat(
             icon: Icons.schedule,
             value: '$pendingCount',
             label: 'Pending',
-            color: Colors.blue,
+            color: const Color(0xFFF57C00),
           ),
-          Container(width: 1, height: 40, color: Colors.grey.withOpacity(0.3)),
+          _verticalDivider(),
           _buildSmallStat(
-            icon: Icons.local_fire_department,
-            value:
-                '${adherenceProvider.todayLogs.where((log) => log.status == AdherenceStatus.taken).length}',
-            label: 'Done Today',
-            color: Colors.orange,
+            icon: Icons.list_alt,
+            value: '$totalCount',
+            label: 'Total',
+            color: const Color(0xFF1565C0),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _verticalDivider() {
+    return Container(
+      width: 1,
+      height: 36,
+      color: Colors.grey.withOpacity(0.15),
     );
   }
 
@@ -745,164 +758,27 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           children: [
             Icon(icon, color: color, size: 18),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               value,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
-    );
-  }
-
-  Widget _buildReminderCard(
-    ReminderModel reminder,
-    AdherenceProvider adherenceProvider,
-  ) {
-    final now = DateTime.now();
-    final status = adherenceProvider.getStatusForReminder(reminder.id, now);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: reminder.type == ReminderType.medication
-                ? Colors.blue.withOpacity(0.1)
-                : Colors.green.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              reminder.typeIcon,
-              style: const TextStyle(fontSize: 24),
-            ),
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                reminder.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            if (status != null) _buildStatusBadge(status),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              '🕐 ${reminder.timesDisplay}',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '📅 ${reminder.frequencyDisplay}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            if (reminder.dosage != null && reminder.dosage!.isNotEmpty)
-              Text(
-                '💊 ${reminder.dosage}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.check_circle, color: Colors.green),
-              onPressed: status == null
-                  ? () => _handleReminderAction(reminder, 'taken')
-                  : null,
-              tooltip: 'Mark as taken',
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.red),
-              onPressed: status == null
-                  ? () => _handleReminderAction(reminder, 'skipped')
-                  : null,
-              tooltip: 'Skip',
-            ),
-            PopupMenuButton(
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'action',
-                  child: Row(
-                    children: [
-                      Icon(Icons.more_horiz, size: 20),
-                      SizedBox(width: 8),
-                      Text('More Actions'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 8),
-                      Text('Edit'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 20, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-              onSelected: (value) {
-                if (value == 'action') {
-                  _showReminderActionDialog(reminder);
-                } else if (value == 'edit') {
-                  _navigateToEditScreen(reminder);
-                } else if (value == 'delete') {
-                  _showDeleteDialog(reminder);
-                }
-              },
-            ),
-          ],
-        ),
-        onTap: () => _showReminderActionDialog(reminder),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(AdherenceStatus status) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: status.statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '${status.statusIcon} ${status.statusDisplayName.toUpperCase()}',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: status.statusColor,
-        ),
-      ),
     );
   }
 
@@ -925,62 +801,6 @@ class _HomeScreenState extends State<HomeScreen> {
           const Text(
             'Tap the + button to add your first reminder',
             style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDeleteDialog(ReminderModel reminder) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Reminder'),
-        content: Text('Are you sure you want to delete "${reminder.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final reminderProvider = context.read<ReminderProvider>();
-              final authProvider = context.read<AuthProvider>();
-
-              debugPrint('🗑️ Deleting reminder: ${reminder.id}');
-
-              bool success = await reminderProvider.deleteReminder(reminder.id);
-
-              if (mounted) {
-                Navigator.pop(context);
-
-                if (success) {
-                  // Reload reminders
-                  if (authProvider.currentUser != null) {
-                    reminderProvider.loadReminders(
-                      authProvider.currentUser!.id,
-                    );
-                  }
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Reminder deleted'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        reminderProvider.errorMessage ?? 'Failed to delete',
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1020,6 +840,347 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReminderCard(
+    ReminderModel reminder,
+    AdherenceProvider adherenceProvider,
+  ) {
+    final now = DateTime.now();
+    final status = adherenceProvider.getStatusForReminder(reminder.id, now);
+    final isTaken = status == AdherenceStatus.taken;
+    final isSkipped = status == AdherenceStatus.skipped;
+    final isSnoozed = status == AdherenceStatus.snoozed;
+    final isPending = status == null;
+
+    // Accent color based on status
+    final accentColor = isTaken
+        ? const Color(0xFF2E7D32)
+        : isSkipped
+        ? const Color(0xFFC62828)
+        : isSnoozed
+        ? const Color(0xFFF57C00)
+        : const Color(0xFF00897B);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border(left: BorderSide(color: accentColor, width: 5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(
+              Theme.of(context).brightness == Brightness.dark ? 0.25 : 0.06,
+            ),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showReminderActionDialog(reminder),
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Top row: icon + name + status ──
+                Row(
+                  children: [
+                    // Icon container with gradient
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: reminder.type == ReminderType.medication
+                              ? [
+                                  const Color(0xFF42A5F5),
+                                  const Color(0xFF1565C0),
+                                ]
+                              : [
+                                  const Color(0xFF66BB6A),
+                                  const Color(0xFF2E7D32),
+                                ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                (reminder.type == ReminderType.medication
+                                        ? const Color(0xFF1565C0)
+                                        : const Color(0xFF2E7D32))
+                                    .withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          reminder.typeIcon,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 14),
+
+                    // Name + time
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            reminder.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 13,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                reminder.timesDisplay,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 3,
+                                height: 3,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[400],
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  reminder.frequencyDisplay,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Status badge or more menu
+                    if (status != null)
+                      _buildModernStatusBadge(status)
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.more_vert,
+                          size: 18,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                  ],
+                ),
+
+                // ── Middle: dosage / notes chip row ──
+                if (reminder.dosage != null && reminder.dosage!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.medication_outlined,
+                          size: 14,
+                          color: Color(0xFF1565C0),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          reminder.dosage!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1565C0),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // ── Bottom: Action buttons (if pending) ──
+                if (isPending) ...[
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      // Taken button
+                      Expanded(
+                        child: _buildActionButton(
+                          icon: Icons.check_circle,
+                          label: 'Taken',
+                          color: const Color(0xFF2E7D32),
+                          onTap: () => _handleReminderAction(reminder, 'taken'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Skip button
+                      Expanded(
+                        child: _buildActionButton(
+                          icon: Icons.close,
+                          label: 'Skip',
+                          color: const Color(0xFFC62828),
+                          onTap: () =>
+                              _handleReminderAction(reminder, 'skipped'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Snooze button
+                      Expanded(
+                        child: _buildActionButton(
+                          icon: Icons.snooze,
+                          label: 'Snooze',
+                          color: const Color(0xFFF57C00),
+                          onTap: () =>
+                              _handleReminderAction(reminder, 'snoozed'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // ── If actioned, show action time ──
+                if (!isPending) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 12,
+                        color: Colors.grey[500],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Action recorded',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Modern status badge
+  Widget _buildModernStatusBadge(AdherenceStatus status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: status.statusColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: status.statusColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(status.statusIcon, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(
+            status.statusDisplayName,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: status.statusColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Action button builder
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(0.25), width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

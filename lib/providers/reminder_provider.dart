@@ -110,7 +110,7 @@ class ReminderProvider extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      print('🗑️ Provider: Deleting reminder: $reminderId');
+      debugPrint('🗑️ Provider: Deleting reminder: $reminderId');
 
       await _reminderService.deleteReminder(reminderId);
 

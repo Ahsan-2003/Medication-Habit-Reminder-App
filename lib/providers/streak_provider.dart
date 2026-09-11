@@ -82,11 +82,14 @@ class StreakProvider extends ChangeNotifier {
       }
 
       // A day is "completed" if all reminders that day were taken (not skipped)
+      // A day is "completed" if adherence rate >= 80%
       final List<DateTime> completedDates = [];
       for (var entry in dayStatuses.entries) {
         final statuses = entry.value;
-        // Consider day complete if all were taken
-        if (statuses.every((s) => s == 'taken')) {
+        final taken = statuses.where((s) => s == 'taken').length;
+        final total = statuses.length;
+
+        if (total > 0 && (taken / total) >= 0.8) {
           final parts = entry.key.split('-');
           completedDates.add(
             DateTime(

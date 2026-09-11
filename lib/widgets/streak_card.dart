@@ -19,10 +19,11 @@ class StreakCard extends StatelessWidget {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
+        // ⭐ Vibrant gradient
         gradient: LinearGradient(
           colors: [
             _getStreakColor(currentStreak),
-            _getStreakColor(currentStreak).withValues(alpha: 0.7),
+            _getStreakColor(currentStreak).withOpacity(0.75),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -30,9 +31,10 @@ class StreakCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _getStreakColor(currentStreak).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: _getStreakColor(currentStreak).withOpacity(0.4),
+            blurRadius: 20,
+            spreadRadius: 1,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -43,21 +45,22 @@ class StreakCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '🔥 Your Streak',
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
+                  horizontal: 12,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withOpacity(0.25),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -191,11 +194,11 @@ class StreakCard extends StatelessWidget {
 
   Color _getStreakColor(int streakCount) {
     if (streakCount >= 100) return const Color(0xFFD4AF37); // Gold
-    if (streakCount >= 30) return const Color(0xFF9C27B0); // Purple
-    if (streakCount >= 14) return const Color(0xFF3F51B5); // Indigo
-    if (streakCount >= 7) return const Color(0xFF2196F3); // Blue
-    if (streakCount >= 3) return const Color(0xFFFF9800); // Orange
-    if (streakCount >= 1) return const Color(0xFF4CAF50); // Green
-    return const Color(0xFF9E9E9E); // Grey
+    if (streakCount >= 30) return const Color(0xFF8E24AA); // Deep purple
+    if (streakCount >= 14) return const Color(0xFF3949AB); // Deep indigo
+    if (streakCount >= 7) return const Color(0xFF1976D2); // Strong blue
+    if (streakCount >= 3) return const Color(0xFFF57C00); // Deep orange
+    if (streakCount >= 1) return const Color(0xFF2E7D32); // Deep green
+    return const Color(0xFF546E7A); // Slate (not grey)
   }
 }

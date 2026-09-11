@@ -100,26 +100,22 @@ class StreakService {
       final normalizedDate = DateTime(date.year, date.month, date.day);
 
       if (lastDate == null) {
-        // First date - check if it's today or yesterday
         final diff = today.difference(normalizedDate).inDays;
+        // Accept today or yesterday as streak start
         if (diff <= 1) {
           currentStreak = 1;
           lastDate = normalizedDate;
         } else {
-          // Streak broken
           break;
         }
       } else {
-        // Check if this date is exactly 1 day before the last one
         final diff = lastDate.difference(normalizedDate).inDays;
         if (diff == 1) {
           currentStreak++;
           lastDate = normalizedDate;
         } else if (diff == 0) {
-          // Same day, skip
           continue;
         } else {
-          // Streak broken
           break;
         }
       }
