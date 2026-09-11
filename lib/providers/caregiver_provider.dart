@@ -23,7 +23,7 @@ class CaregiverProvider extends ChangeNotifier {
         .getPatientLinkStream(patientId)
         .listen(
           (link) {
-            _patientLink = link;
+            _patientLink = link; // ⭐ Sets to null when doc is revoked
             notifyListeners();
           },
           onError: (error) {
@@ -110,6 +110,7 @@ class CaregiverProvider extends ChangeNotifier {
   }
 
   // Revoke link
+  // Revoke link
   Future<bool> revokeLink(String linkId) async {
     try {
       _isLoading = true;
@@ -117,6 +118,11 @@ class CaregiverProvider extends ChangeNotifier {
       notifyListeners();
 
       await _caregiverService.revokeLink(linkId);
+
+      // ⭐ IMMEDIATELY clear the local link
+      // Don't wait for the stream to emit
+      _patientLink = null;
+      _caregiverLinks.removeWhere((link) => link.id == linkId);
 
       _isLoading = false;
       notifyListeners();
