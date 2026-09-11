@@ -427,55 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // Caregiver shortcut (most used)
-          IconButton(
-            icon: const Icon(Icons.people_outline),
-            tooltip: authProvider.currentUser?.role == 'caregiver'
-                ? 'My Patients'
-                : 'Caregiver',
-            onPressed: () {
-              if (authProvider.currentUser?.role == 'caregiver') {
-                // Caregivers go to their dashboard
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CaregiverDashboardScreen(),
-                  ),
-                ).then((_) {
-                  // Reload caregiver links when returning
-                  if (authProvider.currentUser != null) {
-                    context.read<CaregiverProvider>().loadCaregiverLinks(
-                      authProvider.currentUser!.id,
-                    );
-                  }
-                });
-              } else {
-                // Patients go to invite screen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CaregiverInviteScreen(),
-                  ),
-                );
-              }
-            },
-          ),
-
-          // Quick dark mode toggle
-          Consumer<ThemeProvider>(
-            builder: (context, themeProvider, child) {
-              return IconButton(
-                icon: Icon(
-                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                ),
-                tooltip: themeProvider.isDarkMode
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode',
-                onPressed: () => themeProvider.toggleTheme(),
-              );
-            },
-          ),
-
+          // ── Analytics ──
           IconButton(
             icon: const Icon(Icons.insights),
             tooltip: 'Analytics',
@@ -489,140 +441,71 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // Alerts icon with badge
-          Consumer<AlertProvider>(
-            builder: (context, alertProvider, child) {
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined),
-                    tooltip: 'Alerts',
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AlertsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  if (alertProvider.unreadCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          '${alertProvider.unreadCount > 9 ? "9+" : alertProvider.unreadCount}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-
-          // Test Missed Dose Icon
+          // ── Caregiver / Patients (role-based) ──
           IconButton(
-            icon: const Icon(Icons.warning, color: Colors.orange),
-            tooltip: 'Test Missed Dose',
-            onPressed: () async {
-              final authProvider = context.read<AuthProvider>();
-              final reminderProvider = context.read<ReminderProvider>();
-
-              if (authProvider.currentUser == null) return;
-              if (reminderProvider.reminders.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Add a reminder first')),
-                );
-                return;
-              }
-
-              // Simulate a missed dose: use the first reminder with a time 5 min ago
-              final reminder = reminderProvider.reminders.first;
-              final pastTime = DateTime.now().subtract(
-                const Duration(minutes: 40),
-              );
-
-              final service = MissedDoseService();
-              await service.checkAndNotifyMissedDose(
-                reminder: reminder,
-                scheduledTime: pastTime,
-              );
-
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Missed dose alert tested!'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
-            },
-          ),
-
-          // Refresh shortcut
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            icon: const Icon(Icons.people_outline),
+            tooltip: authProvider.currentUser?.role == 'caregiver'
+                ? 'My Patients'
+                : 'Caregiver',
             onPressed: () {
-              if (authProvider.currentUser != null) {
-                reminderProvider.loadReminders(authProvider.currentUser!.id);
-                adherenceProvider.loadTodayLogs(authProvider.currentUser!.id);
-                streakProvider.loadStreak(authProvider.currentUser!.id);
+              if (authProvider.currentUser?.role == 'caregiver') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CaregiverDashboardScreen(),
+                  ),
+                ).then((_) {
+                  if (authProvider.currentUser != null) {
+                    context.read<CaregiverProvider>().loadCaregiverLinks(
+                      authProvider.currentUser!.id,
+                    );
+                  }
+                });
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CaregiverInviteScreen(),
+                  ),
+                );
               }
             },
           ),
 
-          // Overflow menu (everything else)
+          // ── Overflow Menu ──
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             tooltip: 'More options',
             onSelected: (value) async {
               switch (value) {
+                case 'refresh':
+                  if (authProvider.currentUser != null) {
+                    reminderProvider.loadReminders(
+                      authProvider.currentUser!.id,
+                    );
+                    adherenceProvider.loadTodayLogs(
+                      authProvider.currentUser!.id,
+                    );
+                    streakProvider.loadStreak(authProvider.currentUser!.id);
+                    context.read<AlertProvider>().loadPatientAlerts(
+                      authProvider.currentUser!.id,
+                    );
+                  }
+                  break;
+
+                case 'alerts':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AlertsScreen(),
+                    ),
+                  );
+                  break;
+
                 case 'profile':
                   _showProfileDialog(context, authProvider);
                   break;
-                case 'test_notification':
-                  final notificationService = NotificationService();
-                  await notificationService.showTestNotification();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Test notification sent!')),
-                    );
-                  }
-                  break;
-                case 'test_alarms':
-                  _runAlarmTests(context);
-                  break;
-                case 'view_pending':
-                  _showPendingNotifications(context);
-                  break;
-                case 'clear_notifications':
-                  final plugin = FlutterLocalNotificationsPlugin();
-                  await plugin.cancelAll();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('All notifications cleared'),
-                      ),
-                    );
-                  }
-                  break;
+
                 case 'settings':
                   Navigator.push(
                     context,
@@ -631,12 +514,63 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   );
                   break;
+
                 case 'logout':
                   _confirmLogout(context, authProvider);
                   break;
               }
             },
             itemBuilder: (context) => [
+              // Refresh
+              const PopupMenuItem(
+                value: 'refresh',
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh, size: 20),
+                    SizedBox(width: 12),
+                    Text('Refresh'),
+                  ],
+                ),
+              ),
+
+              // Alerts with badge
+              PopupMenuItem(
+                value: 'alerts',
+                child: Row(
+                  children: [
+                    Consumer<AlertProvider>(
+                      builder: (context, alertProvider, _) {
+                        return Stack(
+                          children: [
+                            const Icon(Icons.notifications_outlined, size: 20),
+                            if (alertProvider.unreadCount > 0)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 10,
+                                    minHeight: 10,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Alerts'),
+                  ],
+                ),
+              ),
+
+              const PopupMenuDivider(),
+
               // Profile
               const PopupMenuItem(
                 value: 'profile',
@@ -649,63 +583,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const PopupMenuDivider(),
-
-              // Notification tests section
-              const PopupMenuItem(
-                value: 'test_notification',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.notifications_active,
-                      size: 20,
-                      color: Colors.blue,
-                    ),
-                    SizedBox(width: 12),
-                    Text('Test Notification'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'test_alarms',
-                child: Row(
-                  children: [
-                    Icon(Icons.science, size: 20, color: Colors.purple),
-                    SizedBox(width: 12),
-                    Text('Test Alarm Modes'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'view_pending',
-                child: Row(
-                  children: [
-                    Icon(Icons.bug_report, size: 20, color: Colors.orange),
-                    SizedBox(width: 12),
-                    Text('View Pending'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'clear_notifications',
-                child: Row(
-                  children: [
-                    Icon(Icons.clear_all, size: 20, color: Colors.grey),
-                    SizedBox(width: 12),
-                    Text('Clear All Notifications'),
-                  ],
-                ),
-              ),
+              // Settings
               const PopupMenuItem(
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings, size: 20),
+                    Icon(Icons.settings_outlined, size: 20),
                     SizedBox(width: 12),
                     Text('Settings'),
                   ],
                 ),
               ),
+
               const PopupMenuDivider(),
 
               // Logout
