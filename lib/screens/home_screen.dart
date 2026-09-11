@@ -3,14 +3,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:medication_reminder_app/providers/alert_provider.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
-import 'package:medication_reminder_app/providers/theme_provider.dart';
 import 'package:medication_reminder_app/screens/alerts_screen.dart';
 import 'package:medication_reminder_app/screens/analytics_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_dashboard_screen.dart';
 import 'package:medication_reminder_app/screens/caregiver_invite_screen.dart';
 import 'package:medication_reminder_app/screens/edit_reminder_screen.dart';
 import 'package:medication_reminder_app/screens/settings_screen.dart';
-import 'package:medication_reminder_app/services/missed_dose_service.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
@@ -526,7 +524,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: 'refresh',
                 child: Row(
                   children: [
-                    Icon(Icons.refresh, size: 20),
+                    Icon(Icons.refresh, size: 20, color: Colors.grey),
                     SizedBox(width: 12),
                     Text('Refresh'),
                   ],
@@ -542,7 +540,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (context, alertProvider, _) {
                         return Stack(
                           children: [
-                            const Icon(Icons.notifications_outlined, size: 20),
+                            const Icon(
+                              Icons.notifications_outlined,
+                              size: 20,
+                              color: Colors.redAccent,
+                            ),
                             if (alertProvider.unreadCount > 0)
                               Positioned(
                                 right: 0,
@@ -576,7 +578,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline, size: 20),
+                    Icon(
+                      Icons.person_outline,
+                      size: 20,
+                      color: Colors.lightBlue,
+                    ),
                     SizedBox(width: 12),
                     Text('Profile'),
                   ],
@@ -588,7 +594,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings_outlined, size: 20),
+                    Icon(
+                      Icons.settings_outlined,
+                      size: 20,
+                      color: Colors.black,
+                    ),
                     SizedBox(width: 12),
                     Text('Settings'),
                   ],
