@@ -110,16 +110,23 @@ class CaregiverService {
     return _firestore
         .collection('caregiver_links')
         .where('patientId', isEqualTo: patientId)
-        .where('status', whereIn: ['pending', 'active'])
-        .orderBy('createdAt', descending: true)
-        .limit(1)
         .snapshots()
         .map((snapshot) {
           if (snapshot.docs.isEmpty) return null;
-          return CaregiverLinkModel.fromMap(
-            snapshot.docs.first.id,
-            snapshot.docs.first.data(),
-          );
+
+          final activeLinks = snapshot.docs
+              .map((doc) => CaregiverLinkModel.fromMap(doc.id, doc.data()))
+              .where(
+                (link) =>
+                    link.status == LinkStatus.pending ||
+                    link.status == LinkStatus.active,
+              )
+              .toList();
+
+          if (activeLinks.isEmpty) return null;
+
+          activeLinks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return activeLinks.first;
         });
   }
 
