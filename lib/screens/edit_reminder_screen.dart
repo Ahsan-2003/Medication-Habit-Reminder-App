@@ -96,9 +96,9 @@ class _EditReminderScreenState extends State<EditReminderScreen> {
         updatedAt: DateTime.now(),
       );
 
-      print('✏️ Updating reminder: ${updatedReminder.id}');
-      print('📝 New name: ${updatedReminder.name}');
-      print('⏰ New times: ${updatedReminder.times}');
+      debugPrint('✏️ Updating reminder: ${updatedReminder.id}');
+      debugPrint('📝 New name: ${updatedReminder.name}');
+      debugPrint('⏰ New times: ${updatedReminder.times}');
 
       bool success = await reminderProvider.updateReminder(updatedReminder);
 

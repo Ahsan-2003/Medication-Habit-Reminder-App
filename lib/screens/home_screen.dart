@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:medication_reminder_app/providers/alert_provider.dart';
 import 'package:medication_reminder_app/providers/caregiver_provider.dart';
 import 'package:medication_reminder_app/providers/streak_provider.dart';
@@ -12,7 +11,6 @@ import 'package:medication_reminder_app/screens/settings_screen.dart';
 import 'package:medication_reminder_app/services/notification_service.dart';
 import 'package:medication_reminder_app/widgets/streak_card.dart';
 import 'package:provider/provider.dart';
-import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder_model.dart';
 import '../models/adherence_log_model.dart';
 import '../providers/auth_provider.dart';
@@ -278,152 +276,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Run the 3 alarm tests
-  // Future<void> _runAlarmTests(BuildContext context) async {
-  //   final plugin = FlutterLocalNotificationsPlugin();
-
-  //   // Test 1: Exact alarm (15 seconds)
-  //   final exactTime = tz.TZDateTime.now(
-  //     tz.local,
-  //   ).add(const Duration(seconds: 15));
-  //   print('🧪 TEST 1: Exact alarm at $exactTime');
-
-  //   try {
-  //     await plugin.zonedSchedule(
-  //       id: 88881,
-  //       title: '🧪 TEST 1: Exact Alarm',
-  //       body: 'This is exactAllowWhileIdle',
-  //       scheduledDate: exactTime,
-  //       notificationDetails: const NotificationDetails(
-  //         android: AndroidNotificationDetails(
-  //           'medication_reminders',
-  //           'Medication Reminders',
-  //           importance: Importance.max,
-  //           priority: Priority.high,
-  //         ),
-  //       ),
-  //       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-  //       payload: 'test_exact',
-  //     );
-  //     print('✅ Exact scheduled');
-  //   } catch (e) {
-  //     print('❌ Exact failed: $e');
-  //   }
-
-  //   // Test 2: Inexact alarm (20 seconds)
-  //   final inexactTime = tz.TZDateTime.now(
-  //     tz.local,
-  //   ).add(const Duration(seconds: 20));
-  //   print('🧪 TEST 2: Inexact alarm at $inexactTime');
-
-  //   try {
-  //     await plugin.zonedSchedule(
-  //       id: 88882,
-  //       title: '🧪 TEST 2: Inexact Alarm',
-  //       body: 'This is inexactAllowWhileIdle',
-  //       scheduledDate: inexactTime,
-  //       notificationDetails: const NotificationDetails(
-  //         android: AndroidNotificationDetails(
-  //           'medication_reminders',
-  //           'Medication Reminders',
-  //           importance: Importance.max,
-  //           priority: Priority.high,
-  //         ),
-  //       ),
-  //       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-  //       payload: 'test_inexact',
-  //     );
-  //     print('✅ Inexact scheduled');
-  //   } catch (e) {
-  //     print('❌ Inexact failed: $e');
-  //   }
-
-  //   // Test 3: Short delay (5 seconds)
-  //   final immediateTime = tz.TZDateTime.now(
-  //     tz.local,
-  //   ).add(const Duration(seconds: 5));
-  //   print('🧪 TEST 3: Immediate alarm at $immediateTime');
-
-  //   try {
-  //     await plugin.zonedSchedule(
-  //       id: 88883,
-  //       title: '🧪 TEST 3: Short Delay',
-  //       body: 'This is 5 seconds away',
-  //       scheduledDate: immediateTime,
-  //       notificationDetails: const NotificationDetails(
-  //         android: AndroidNotificationDetails(
-  //           'medication_reminders',
-  //           'Medication Reminders',
-  //           importance: Importance.max,
-  //           priority: Priority.high,
-  //         ),
-  //       ),
-  //       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-  //       payload: 'test_short',
-  //     );
-  //     print('✅ Short scheduled');
-  //   } catch (e) {
-  //     print('❌ Short failed: $e');
-  //   }
-
-  //   if (!context.mounted) return;
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     const SnackBar(
-  //       content: Text('Scheduled 3 tests. Close app NOW!'),
-  //       duration: Duration(seconds: 5),
-  //     ),
-  //   );
-  // }
-
-  // // Show pending notifications dialog
-  // Future<void> _showPendingNotifications(BuildContext context) async {
-  //   final plugin = FlutterLocalNotificationsPlugin();
-  //   final requests = await plugin.pendingNotificationRequests();
-
-  //   if (!context.mounted) return;
-
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) => AlertDialog(
-  //       title: Text('Pending: ${requests.length}'),
-  //       content: SizedBox(
-  //         width: double.maxFinite,
-  //         child: ListView(
-  //           shrinkWrap: true,
-  //           children: requests.isEmpty
-  //               ? [
-  //                   const Text(
-  //                     '❌ No pending notifications!\n\nThis means scheduling failed.',
-  //                   ),
-  //                 ]
-  //               : requests
-  //                     .map(
-  //                       (r) => Card(
-  //                         child: Padding(
-  //                           padding: const EdgeInsets.all(8.0),
-  //                           child: Text(
-  //                             'ID: ${r.id}\n'
-  //                             'Title: ${r.title}\n'
-  //                             'Body: ${r.body}\n'
-  //                             'Payload: ${r.payload}',
-  //                             style: const TextStyle(fontSize: 12),
-  //                           ),
-  //                         ),
-  //                       ),
-  //                     )
-  //                     .toList(),
-  //         ),
-  //       ),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Navigator.pop(context),
-  //           child: const Text('Close'),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   // Confirm logout
   Future<void> _confirmLogout(
     BuildContext context,
@@ -544,7 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _navigateToEditScreen(ReminderModel reminder) async {
-    print('✏️ Navigating to edit screen for: ${reminder.name}');
+    debugPrint('✏️ Navigating to edit screen for: ${reminder.name}');
 
     final result = await Navigator.push(
       context,
@@ -1062,30 +914,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 30),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(width: 1, height: 60, color: Colors.grey.withOpacity(0.3));
-  }
-
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -1127,7 +955,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final reminderProvider = context.read<ReminderProvider>();
               final authProvider = context.read<AuthProvider>();
 
-              print('🗑️ Deleting reminder: ${reminder.id}');
+              debugPrint('🗑️ Deleting reminder: ${reminder.id}');
 
               bool success = await reminderProvider.deleteReminder(reminder.id);
 

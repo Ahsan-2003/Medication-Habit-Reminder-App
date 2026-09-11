@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import '../models/reminder_model.dart';
 import 'firebase_service.dart';
 
@@ -87,14 +88,14 @@ class ReminderService {
   // Delete a reminder
   Future<bool> deleteReminder(String reminderId) async {
     try {
-      print('🗑️ Service: Attempting to delete reminder: $reminderId');
+      debugPrint('🗑️ Service: Attempting to delete reminder: $reminderId');
 
       await _firestore.collection('reminders').doc(reminderId).delete();
 
-      print('✅ Service: Reminder deleted successfully');
+      debugPrint('✅ Service: Reminder deleted successfully');
       return true;
     } catch (e) {
-      print('❌ Service: Failed to delete reminder: $e');
+      debugPrint('❌ Service: Failed to delete reminder: $e');
       throw Exception('Failed to delete reminder: $e');
     }
   }

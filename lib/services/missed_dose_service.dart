@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/widgets.dart';
 import '../models/adherence_log_model.dart';
 import '../models/reminder_model.dart';
 import '../models/caregiver_link_model.dart';
@@ -31,7 +32,7 @@ class MissedDoseService {
         );
         if (log.status == AdherenceStatus.taken ||
             log.status == AdherenceStatus.skipped) {
-          print('✅ Reminder already logged, no alert needed');
+          debugPrint('✅ Reminder already logged, no alert needed');
           return;
         }
       }
@@ -45,7 +46,7 @@ class MissedDoseService {
           .get();
 
       if (linkSnapshot.docs.isEmpty) {
-        print('ℹ️ No caregiver linked, skipping alert');
+        debugPrint('ℹ️ No caregiver linked, skipping alert');
         return;
       }
 
@@ -56,7 +57,7 @@ class MissedDoseService {
 
       // 3. Check if alert is enabled and if grace period has passed
       if (!link.notifyOnMissedDose) {
-        print('ℹ️ Missed dose alerts disabled by patient');
+        debugPrint('ℹ️ Missed dose alerts disabled by patient');
         return;
       }
 
@@ -64,7 +65,7 @@ class MissedDoseService {
       final now = DateTime.now();
 
       if (now.difference(scheduledTime) < gracePeriod) {
-        print('⏳ Grace period not passed yet');
+        debugPrint('⏳ Grace period not passed yet');
         return;
       }
 
@@ -77,7 +78,7 @@ class MissedDoseService {
           .get();
 
       if (alertSnapshot.docs.isNotEmpty) {
-        print('ℹ️ Alert already sent for this reminder');
+        debugPrint('ℹ️ Alert already sent for this reminder');
         return;
       }
 
@@ -103,9 +104,9 @@ class MissedDoseService {
         dosage: reminder.dosage ?? '',
       );
 
-      print('✅ Missed dose alert sent to caregiver');
+      debugPrint('✅ Missed dose alert sent to caregiver');
     } catch (e) {
-      print('❌ Failed to check missed dose: $e');
+      debugPrint('❌ Failed to check missed dose: $e');
     }
   }
 

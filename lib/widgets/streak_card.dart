@@ -22,7 +22,7 @@ class StreakCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             _getStreakColor(currentStreak),
-            _getStreakColor(currentStreak).withOpacity(0.7),
+            _getStreakColor(currentStreak).withValues(alpha: 0.7),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

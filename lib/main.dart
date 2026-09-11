@@ -70,8 +70,6 @@ class AuthWrapper extends StatelessWidget {
         return const HomeScreen();
       case AuthStatus.unauthenticated:
         return const LoginScreen();
-      default:
-        return const LoginScreen();
     }
   }
 }
